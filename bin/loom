@@ -647,61 +647,12 @@ def timer_status(target_os=None):
     log(f'no native timer status command available for {system}')
     return 1
 
-def copy_bootstrap_tree(src, dst):
-    src = Path(src); dst = Path(dst)
-    exclude = {'.git', 'logs', 'state', 'node_modules', '__pycache__'}
-    dst.mkdir(parents=True, exist_ok=True)
-    for item in src.iterdir():
-        if item.name in exclude or item.name.endswith('.pyc'):
-            continue
-        target = dst / item.name
-        if item.is_dir():
-            if target.exists():
-                shutil.rmtree(target)
-            shutil.copytree(item, target, symlinks=True, ignore=shutil.ignore_patterns('__pycache__', '*.pyc', 'node_modules'))
-        else:
-            shutil.copy2(item, target)
-    (dst / 'bin' / 'loom').chmod(0o755)
-
-
-def bootstrap_install(args):
-    target = Path(args.target).expanduser() if args.target else Path.home() / 'Projects' / 'neo' / 'pub' / 'loom'
-    repo = args.repo
-    target.parent.mkdir(parents=True, exist_ok=True)
-    same_tree = target.resolve() == HUB.resolve()
-    if repo:
-        if target.exists() and (target / '.git').exists():
-            log(f'updating loom checkout at {target}')
-            run(['git', 'pull', '--rebase', '--autostash'], cwd=target, capture=True)
-        elif target.exists() and any(target.iterdir()) and not same_tree:
-            raise RuntimeError(f'target exists and is not a git checkout: {target}')
-        elif not target.exists():
-            log(f'cloning loom from {repo} to {target}')
-            run(['git', 'clone', repo, str(target)], cwd=target.parent, check=True, capture=True)
-    elif not same_tree:
-        log(f'copying loom package to {target}')
-        copy_bootstrap_tree(HUB, target)
-        if not (target / '.git').exists():
-            run(['git', 'init'], cwd=target, capture=True)
-            run(['git', 'branch', '-M', 'main'], cwd=target, capture=True)
-    loom = target / 'bin' / 'loom'
-    if not loom.exists():
-        raise RuntimeError(f'installed loom executable missing: {loom}')
-    steps = [
-        [str(loom), 'install-cli'],
-        [str(loom), 'install-hooks'],
-        [str(loom), 'install-shims'],
-        [str(loom), 'install-timer', '--interval-minutes', str(args.interval_minutes)],
-        [str(loom), 'doctor'],
-    ]
-    for step in steps:
-        p = run(step, cwd=target, capture=True)
-        if p.stdout:
-            print(p.stdout.rstrip())
-        if p.returncode != 0:
-            raise RuntimeError(f'install step failed: {step}')
-    log(f'loom installed at {target}')
-    return 0
+def install_all(args):
+    install_cli(args.cli_target, args.cli_mode)
+    install_hooks(load_manifest())
+    install_shims()
+    install_timer(args.interval_minutes, args.platform)
+    return doctor(load_manifest())
 
 
 def cmd_sync(args):
@@ -722,7 +673,7 @@ def cmd_sync(args):
 def main():
     ap=argparse.ArgumentParser()
     sub=ap.add_subparsers(dest='cmd', required=True)
-    ip=sub.add_parser('install'); ip.add_argument('--target', default=None); ip.add_argument('--repo', default=None); ip.add_argument('--interval-minutes', type=int, default=5)
+    ip=sub.add_parser('install'); ip.add_argument('--cli-target', default=None); ip.add_argument('--cli-mode', choices=['symlink','copy'], default='symlink'); ip.add_argument('--interval-minutes', type=int, default=5); ip.add_argument('--platform', choices=['linux','macos','windows'], default=None)
     sub.add_parser('export')
     sub.add_parser('apply')
     sub.add_parser('sync')
@@ -736,7 +687,7 @@ def main():
     args=ap.parse_args()
     if args.cmd == 'install':
         try:
-            return bootstrap_install(args)
+            return install_all(args)
         except Exception as e:
             log(f'install failed: {e}')
             return 1

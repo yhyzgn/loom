@@ -2,31 +2,41 @@
 
 `loom` syncs global agent/harness configuration across machines through a Git-backed hub.
 
-## Local use
+## Install
+
+From a persistent checkout, run:
+
+```bash
+loom install
+```
+
+`loom install` performs the local machine setup:
+
+1. installs the `loom` CLI into the user executable path, default `~/.local/bin/loom`
+2. installs harness hooks
+3. installs command shims
+4. installs the periodic timer
+5. runs `loom doctor`
+
+## Common commands
 
 ```bash
 loom doctor
 loom sync
+loom install
 loom install-cli
 loom install-hooks
 loom install-shims
 loom install-timer
+loom timer-status
 ```
 
-## npx / bunx install
+## Persistent hub
 
-Install loom from this repository into the persistent hub directory `~/Projects/neo/pub/loom`:
+The sync hub should live in a persistent Git checkout, for example:
 
-```bash
-npx --yes . install
-bunx --package file:$PWD loom install
+```text
+~/Projects/neo/pub/loom
 ```
 
-Install from a Git remote after pushing this repo:
-
-```bash
-npx --yes git+ssh://git@github.com/<owner>/loom.git install --repo git+ssh://git@github.com/<owner>/loom.git
-bunx --package git+ssh://git@github.com/<owner>/loom.git loom install --repo git+ssh://git@github.com/<owner>/loom.git
-```
-
-The install command clones/copies loom to a persistent checkout, then runs `install-cli`, `install-hooks`, `install-shims`, `install-timer`, and `doctor`.
+Configure a private Git remote for cross-machine pull/push sync.

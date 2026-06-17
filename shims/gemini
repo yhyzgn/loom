@@ -7,7 +7,7 @@ AGENT_SYNC_LOG="/tmp/agent-sync-gemini.log"
 agent_sync_run() {
   local phase="$1"
   if [ "${AGENT_SYNC_SHIM_BYPASS:-0}" != "1" ]; then
-    AGENT_SYNC_SHIM_BYPASS=1 "$AGENT_SYNC_HUB/bin/agent-sync" hook --platform "$AGENT_SYNC_PLATFORM" --phase "$phase" >>"$AGENT_SYNC_LOG" 2>&1 || true
+    AGENT_SYNC_SHIM_BYPASS=1 "$AGENT_SYNC_HUB/bin/loom" hook --platform "$AGENT_SYNC_PLATFORM" --phase "$phase" >>"$AGENT_SYNC_LOG" 2>&1 || true
   fi
 }
 agent_sync_on_exit() {

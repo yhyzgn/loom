@@ -33,6 +33,15 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/loom\" hook --platform \"augment\" --phase start",
+            "timeout": 30
+          }
+        ]
       }
     ],
     "PostToolUse": [
@@ -125,6 +134,15 @@
           {
             "type": "command",
             "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"augment\" --phase exit",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/loom\" hook --platform \"augment\" --phase exit",
             "timeout": 30
           }
         ]

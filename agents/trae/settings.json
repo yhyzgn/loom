@@ -13,15 +13,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"trae\" --phase start",
-            "timeout": 30
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/loom\" hook --platform \"trae\" --phase start",
             "timeout": 30
           }
@@ -29,15 +20,6 @@
       }
     ],
     "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"trae\" --phase exit",
-            "timeout": 30
-          }
-        ]
-      },
       {
         "hooks": [
           {

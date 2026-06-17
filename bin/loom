@@ -332,7 +332,7 @@ def install_hooks(manifest):
         phase = hook_phase_for_event(event)
         cmd = hook_cmd.format(platform=platform) + f' --phase {phase}'
         def is_agent_sync_hook(hook):
-            return isinstance(hook, dict) and f'{HUB}/bin/loom' in hook.get('command', '')
+            return isinstance(hook, dict) and (f'{HUB}/bin/loom' in hook.get('command', '') or f'{HUB}/bin/agent-sync' in hook.get('command', ''))
         cleaned=[]
         changed=False
         for group in arr:

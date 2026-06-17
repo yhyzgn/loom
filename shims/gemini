@@ -3,7 +3,7 @@ set -uo pipefail
 AGENT_SYNC_HUB="/home/neo/Projects/neo/pub/loom"
 AGENT_SYNC_PLATFORM="gemini"
 AGENT_SYNC_REAL="/home/neo/.bun/bin/gemini"
-AGENT_SYNC_LOG="/tmp/agent-sync-gemini.log"
+AGENT_SYNC_LOG="/tmp/loom-gemini.log"
 agent_sync_run() {
   local phase="$1"
   if [ "${AGENT_SYNC_SHIM_BYPASS:-0}" != "1" ]; then

@@ -208,7 +208,7 @@ def git_init_if_needed():
         run(['git', 'branch', '-M', 'main'], check=False)
     gitignore = HUB / '.gitignore'
     if not gitignore.exists():
-        gitignore.write_text('\n'.join(['logs/*.log', '.agent-sync.lock', 'state/*.tmp', '', '# never store secrets/caches', '**/auth.json', '**/*credentials*.json', '**/oauth*.json', '**/node_modules/', '**/tmp/', '**/cache/', '**/sessions/', '**/*.db*']) + '\n')
+        gitignore.write_text('\n'.join(['logs/*.log', '.loom.lock', 'state/*.tmp', '', '# never store secrets/caches', '**/auth.json', '**/*credentials*.json', '**/oauth*.json', '**/node_modules/', '**/tmp/', '**/cache/', '**/sessions/', '**/*.db*']) + '\n')
 
 
 def git_commit(message):
@@ -332,7 +332,7 @@ def install_hooks(manifest):
         phase = hook_phase_for_event(event)
         cmd = hook_cmd.format(platform=platform) + f' --phase {phase}'
         def is_agent_sync_hook(hook):
-            return isinstance(hook, dict) and any(marker in hook.get('command', '') for marker in (f'{HUB}/bin/loom', f'{HUB}/bin/agent-sync', '/home/neo/Projects/neo/pub/agent-config-hub/bin/loom', '/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync'))
+            return isinstance(hook, dict) and f'{HUB}/bin/loom' in hook.get('command', '')
         cleaned=[]
         changed=False
         for group in arr:
@@ -388,7 +388,7 @@ def acquire_lock():
             os.write(fd, str(os.getpid()).encode()); os.close(fd); return
         except FileExistsError:
             if time.time()-start > 20:
-                raise RuntimeError('agent-sync lock timeout')
+                raise RuntimeError('loom lock timeout')
             time.sleep(0.5)
 
 
@@ -414,7 +414,7 @@ def install_shims():
             f'AGENT_SYNC_HUB="{HUB}"\n'
             f'AGENT_SYNC_PLATFORM="{c}"\n'
             f'AGENT_SYNC_REAL="{real}"\n'
-            f'AGENT_SYNC_LOG="/tmp/agent-sync-{c}.log"\n'
+            f'AGENT_SYNC_LOG="/tmp/loom-{c}.log"\n'
             'agent_sync_run() {\n'
             '  local phase="$1"\n'
             '  if [ "${AGENT_SYNC_SHIM_BYPASS:-0}" != "1" ]; then\n'
@@ -609,11 +609,11 @@ def cmd_sync(args):
     platform = getattr(args, "platform", "manual")
     log(f'sync begin platform={platform} phase={phase}')
     changed=export_local(manifest); log(f'exported {len(changed)} managed entries')
-    git_commit(f'agent-sync: capture local config {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+    git_commit(f'loom: capture local config {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     pull_rebase()
     applied=apply_repo(manifest); log(f'applied {len(applied)} managed entries')
     install_hooks(manifest)
-    git_commit(f'agent-sync: apply hook wiring {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+    git_commit(f'loom: apply hook wiring {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     push()
     return doctor(manifest)
 
@@ -635,7 +635,7 @@ def main():
         acquire_lock()
         manifest=load_manifest(); git_init_if_needed()
         if args.cmd == 'export':
-            changed=export_local(manifest); log(f'exported {len(changed)} managed entries'); git_commit(f'agent-sync: export local config {dt.datetime.now().isoformat()}'); return 0
+            changed=export_local(manifest); log(f'exported {len(changed)} managed entries'); git_commit(f'loom: export local config {dt.datetime.now().isoformat()}'); return 0
         if args.cmd == 'apply':
             pull_rebase(); applied=apply_repo(manifest); log(f'applied {len(applied)} managed entries'); install_hooks(manifest); return doctor(manifest)
         if args.cmd == 'sync': return cmd_sync(args)

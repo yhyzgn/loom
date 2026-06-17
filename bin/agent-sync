@@ -1,3 +1,0 @@
-#!/usr/bin/env bash
-# Backward-compatible alias for the renamed CLI.
-exec "$(dirname "$0")/loom" "$@"

@@ -3,7 +3,7 @@ set -uo pipefail
 AGENT_SYNC_HUB="/home/neo/Projects/neo/pub/loom"
 AGENT_SYNC_PLATFORM="hermes"
 AGENT_SYNC_REAL="/home/neo/.local/bin/hermes"
-AGENT_SYNC_LOG="/tmp/agent-sync-hermes.log"
+AGENT_SYNC_LOG="/tmp/loom-hermes.log"
 agent_sync_run() {
   local phase="$1"
   if [ "${AGENT_SYNC_SHIM_BYPASS:-0}" != "1" ]; then

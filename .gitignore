@@ -1,5 +1,5 @@
 logs/*.log
-.agent-sync.lock
+.loom.lock
 state/*.tmp
 __pycache__/
 *.pyc

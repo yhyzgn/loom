@@ -113,32 +113,27 @@ flowchart LR
 ### 3.2 `loom sync` sequence
 
 ```mermaid
-sequenceDiagram
-  autonumber
-  participant Local as Local harness dirs
-  participant Loom as Local loom repo
-  participant Git as Private Git remote
-  participant Hooks as Hook/shim/timer wiring
+flowchart TD
+  A[Start loom sync] --> B[Export safe managed files from local harness dirs]
+  B --> C[Commit local capture when files changed]
+  C --> D{Git origin configured}
 
-  Local->>Loom: Export safe managed files
-  Loom->>Loom: git add + commit local capture if changed
+  D -->|Yes| E[Pull remote updates with rebase and autostash]
+  D -->|No| F[Skip remote pull]
 
-  alt origin configured
-    Loom->>Git: git pull --rebase --autostash
-    Git-->>Loom: remote updates
-  else no origin configured
-    Loom->>Loom: skip pull/push; local export/apply still works
-  end
+  E --> G[Apply loom repo config to local harness dirs]
+  F --> G
 
-  Loom->>Local: Apply managed files back to harness dirs
-  Loom->>Hooks: Install or repair hooks and shims
-  Loom->>Loom: commit hook wiring if changed
+  G --> H[Install or repair hooks and shims]
+  H --> I[Commit hook wiring when changed]
+  I --> J{Git origin configured}
 
-  alt origin configured
-    Loom->>Git: git push
-  end
+  J -->|Yes| K[Push local commits to private remote]
+  J -->|No| L[Skip remote push]
 
-  Loom->>Loom: doctor validation
+  K --> M[Run loom doctor]
+  L --> M
+  M --> N[Sync complete]
 ```
 
 ### 3.3 Trigger flow

@@ -75,7 +75,108 @@ Typical local-only content includes:
 
 ## 3. How synchronization works
 
-`loom sync` performs a two-way Git-backed sync cycle:
+`loom sync` performs a two-way Git-backed sync cycle. The key idea is that each machine keeps its own local harness directories, while the `loom` checkout acts as the portable Git-backed hub.
+
+### 3.1 Architecture overview
+
+```mermaid
+flowchart LR
+  subgraph M1[Machine A]
+    A1[Harness config dirs<br/>~/.codex, ~/.gemini, ~/.claude, ...]
+    A2[Loom checkout<br/>~/Projects/neo/pub/loom]
+    A3[Hooks / shims / timer]
+  end
+
+  subgraph R[Private Git remote]
+    R1[(Your fork<br/>single-user repo)]
+  end
+
+  subgraph M2[Machine B]
+    B1[Harness config dirs<br/>~/.codex, ~/.gemini, ~/.claude, ...]
+    B2[Loom checkout<br/>~/Projects/neo/pub/loom]
+    B3[Hooks / shims / timer]
+  end
+
+  A3 -->|trigger loom sync| A2
+  A1 -->|export safe managed files| A2
+  A2 -->|apply managed files| A1
+  A2 <-->|pull / push| R1
+  R1 <-->|pull / push| B2
+  B3 -->|trigger loom sync| B2
+  B1 -->|export safe managed files| B2
+  B2 -->|apply managed files| B1
+
+  S1[Local-only secrets<br/>tokens, API keys, credentials] -. excluded .- A2
+  S2[Local-only secrets<br/>tokens, API keys, credentials] -. excluded .- B2
+```
+
+### 3.2 `loom sync` sequence
+
+```mermaid
+sequenceDiagram
+  autonumber
+  participant Local as Local harness dirs
+  participant Loom as Local loom repo
+  participant Git as Private Git remote
+  participant Hooks as Hook/shim/timer wiring
+
+  Local->>Loom: Export safe managed files
+  Loom->>Loom: git add + commit local capture if changed
+
+  alt origin configured
+    Loom->>Git: git pull --rebase --autostash
+    Git-->>Loom: remote updates
+  else no origin configured
+    Loom->>Loom: skip pull/push; local export/apply still works
+  end
+
+  Loom->>Local: Apply managed files back to harness dirs
+  Loom->>Hooks: Install or repair hooks and shims
+  Loom->>Loom: commit hook wiring if changed
+
+  alt origin configured
+    Loom->>Git: git push
+  end
+
+  Loom->>Loom: doctor validation
+```
+
+### 3.3 Trigger flow
+
+```mermaid
+flowchart TD
+  Start[Trigger] --> Kind{Trigger source}
+
+  Kind -->|Manual| Manual[loom sync]
+  Kind -->|Harness startup| HookStart[loom hook --phase start]
+  Kind -->|Harness normal exit| HookExit[loom hook --phase exit]
+  Kind -->|Periodic timer| Timer[loom hook --phase timer]
+
+  Manual --> Sync[Run sync cycle]
+  HookStart --> Sync
+  HookExit --> Sync
+  Timer --> Sync
+
+  Sync --> Export[Export safe local managed files]
+  Export --> Commit1[Commit local capture]
+  Commit1 --> Pull{Git origin?}
+  Pull -->|yes| Rebase[Pull with rebase/autostash]
+  Pull -->|no| LocalOnly[Skip remote pull/push]
+  Rebase --> Apply[Apply repo config to harness dirs]
+  LocalOnly --> Apply
+  Apply --> Repair[Repair hooks/shims]
+  Repair --> Commit2[Commit wiring changes]
+  Commit2 --> Push{Git origin?}
+  Push -->|yes| RemotePush[Push to private remote]
+  Push -->|no| DoneLocal[Local sync complete]
+  RemotePush --> Doctor[Run doctor]
+  DoneLocal --> Doctor
+  Doctor --> Done[Done]
+```
+
+### 3.4 Step-by-step behavior
+
+`loom sync` performs these concrete steps:
 
 1. export safe local managed files into the loom repository
 2. commit local changes if any

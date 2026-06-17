@@ -20,7 +20,9 @@
     "**/node_modules/**",
     "**/.git/**",
     "**/*.pid",
-    "**/*.lock"
+    "**/*.lock",
+    "**/__pycache__/**",
+    "**/*.pyc"
   ],
   "managed_files": [
     {

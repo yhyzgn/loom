@@ -8,6 +8,15 @@
             "command": "\"/home/neo/n/bin/node\" \"/home/neo/.agent-personas/claude-fable5/hooks/default-context.js\" --platform \"trae\" --event \"SessionStart\""
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"trae\"",
+            "timeout": 30
+          }
+        ]
       }
     ]
   }

@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Conservative staged secret scanner for agent-config-hub.
+# Blocks credential-looking file paths and likely raw API keys/tokens.
+if git diff --cached --name-only | grep -Ei '(^|/)(auth|oauth|.*credentials.*|.*token.*|.*secret.*|\.env)(\.|/|$)' >/dev/null; then
+  echo 'agent-config-hub pre-commit: refusing to commit credential/auth/token/secret file path.' >&2
+  exit 1
+fi
+TMP=$(mktemp)
+trap 'rm -f "$TMP"' EXIT
+git diff --cached -U0 -- . ':(exclude).gitignore' ':(exclude).git/hooks/pre-commit' > "$TMP" || true
+python3 - "$TMP" <<'PY'
+import re, sys
+p=sys.argv[1]
+patterns=[
+    re.compile(r'sk-[A-Za-z0-9_-]{12,}', re.I),
+    re.compile(r'api[_-]?key["\'\s]*[:=]["\'\s]*[A-Za-z0-9_./+-]{12,}', re.I),
+    re.compile(r'token["\'\s]*[:=]["\'\s]*[A-Za-z0-9_./+-]{12,}', re.I),
+    re.compile(r'secret["\'\s]*[:=]["\'\s]*[A-Za-z0-9_./+-]{12,}', re.I),
+]
+for line in open(p, errors='ignore'):
+    if not line.startswith('+') or line.startswith('+++'):
+        continue
+    if '__AGENT_SYNC_LOCAL_SECRET__' in line:
+        continue
+    if any(rx.search(line) for rx in patterns):
+        print('agent-config-hub pre-commit: likely secret detected in staged diff.', file=sys.stderr)
+        sys.exit(1)
+PY

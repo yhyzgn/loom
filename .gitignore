@@ -25,3 +25,4 @@ __pycache__/
 **/*.pyc
 .loom.lock
 logs/loom.log
+state/*.json

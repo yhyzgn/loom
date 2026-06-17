@@ -256,6 +256,8 @@ Examples of event types used by supported harnesses:
 - `Stop`
 - `SessionEnd`
 
+To keep harness startup fast, automatic hook/timer sync is throttled to at most once per local calendar day. After the first successful automatic sync of the day, later startup, exit, and timer hooks skip quickly. Manual `loom sync` always runs a full sync.
+
 Exact support depends on the harness.
 
 ### 5.2 Command shims

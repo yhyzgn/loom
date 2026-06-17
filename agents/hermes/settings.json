@@ -29,15 +29,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/loom\" hook --platform \"hermes\" --phase start",
-            "timeout": 30
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "\"/home/neo/Projects/neo/pub/loom/bin/loom\" hook --platform \"hermes\" --phase start",
             "timeout": 30
           }
@@ -129,15 +120,6 @@
       }
     ],
     "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/loom\" hook --platform \"hermes\" --phase exit",
-            "timeout": 30
-          }
-        ]
-      },
       {
         "hooks": [
           {

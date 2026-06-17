@@ -13,29 +13,20 @@ loom install-shims
 loom install-timer
 ```
 
-## npx / bunx use
+## npx / bunx install
 
-From this repository:
-
-```bash
-npx --yes . doctor
-bunx --package file:$PWD loom doctor
-```
-
-From a Git remote after publishing/pushing this repo:
+Install loom from this repository into the persistent hub directory `~/Projects/neo/pub/loom`:
 
 ```bash
-npx --yes git+ssh://git@github.com/<owner>/loom.git doctor
-bunx --package git+ssh://git@github.com/<owner>/loom.git loom doctor
+npx --yes . install
+bunx --package file:$PWD loom install
 ```
 
-For durable cross-machine sync, install/clone the hub into a persistent directory, then run:
+Install from a Git remote after pushing this repo:
 
 ```bash
-loom install-cli
-loom install-hooks
-loom install-shims
-loom install-timer
+npx --yes git+ssh://git@github.com/<owner>/loom.git install --repo git+ssh://git@github.com/<owner>/loom.git
+bunx --package git+ssh://git@github.com/<owner>/loom.git loom install --repo git+ssh://git@github.com/<owner>/loom.git
 ```
 
-`npx`/`bunx` one-shot temp execution is useful for bootstrap and diagnostics; the sync hub itself should live in a persistent Git checkout such as `~/Projects/neo/pub/loom`.
+The install command clones/copies loom to a persistent checkout, then runs `install-cli`, `install-hooks`, `install-shims`, `install-timer`, and `doctor`.

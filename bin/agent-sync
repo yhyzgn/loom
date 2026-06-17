@@ -311,6 +311,13 @@ def update_codex_config_trust(hooks_path):
     config_path.write_text(text)
 
 
+def hook_phase_for_event(event):
+    e = str(event).lower()
+    if e in ('stop', 'sessionend', 'session_end', 'exit'):
+        return 'exit'
+    return 'start'
+
+
 def install_hooks(manifest):
     installed=[]
     hook_cmd = f'"{HUB}/bin/agent-sync" hook --platform "{{platform}}"'
@@ -322,10 +329,24 @@ def install_hooks(manifest):
             data=json.loads(settings.read_text())
         hooks=data.setdefault('hooks', {})
         arr=hooks.setdefault(event, [])
-        cmd=hook_cmd.format(platform=platform)
-        exists=any(cmd == hh.get('command') for group in arr for hh in group.get('hooks', []) if isinstance(hh, dict))
-        if not exists:
-            arr.append({'hooks':[{'type':'command','command':cmd,'timeout':30}]})
+        phase = hook_phase_for_event(event)
+        cmd = hook_cmd.format(platform=platform) + f' --phase {phase}'
+        def is_agent_sync_hook(hook):
+            return isinstance(hook, dict) and f'{HUB}/bin/agent-sync' in hook.get('command', '')
+        cleaned=[]
+        changed=False
+        for group in arr:
+            group_hooks = group.get('hooks', []) if isinstance(group, dict) else []
+            remaining = [hh for hh in group_hooks if not is_agent_sync_hook(hh)]
+            if len(remaining) != len(group_hooks):
+                changed=True
+            if remaining:
+                ng = dict(group)
+                ng['hooks'] = remaining
+                cleaned.append(ng)
+        cleaned.append({'hooks':[{'type':'command','command':cmd,'timeout':30}]})
+        hooks[event] = cleaned
+        if changed or arr != cleaned:
             settings.write_text(json.dumps(data, indent=2, ensure_ascii=False)+'\n')
             installed.append(platform)
         if h.get('schema') == 'codex-hooks-json':
@@ -433,12 +454,31 @@ def systemd_user_dir():
     return Path.home() / '.config' / 'systemd' / 'user'
 
 
-def install_timer(interval_minutes=5):
+def macos_launch_agents_dir():
+    return Path.home() / 'Library' / 'LaunchAgents'
+
+
+def windows_startup_dir():
+    base = os.environ.get('APPDATA')
+    if base:
+        return Path(base) / 'Microsoft' / 'Windows' / 'Start Menu' / 'Programs' / 'Startup'
+    return Path.home() / 'AppData' / 'Roaming' / 'Microsoft' / 'Windows' / 'Start Menu' / 'Programs' / 'Startup'
+
+
+def install_timer(interval_minutes=5, target_os=None):
     interval_minutes = max(1, int(interval_minutes))
-    system = py_platform.system().lower()
-    if system != 'linux':
-        log(f'install-timer currently writes Linux systemd user timers only; detected {system}')
-        return False
+    system = (target_os or py_platform.system()).lower()
+    if system in ('linux', 'linux2'):
+        return install_linux_timer(interval_minutes)
+    if system in ('darwin', 'mac', 'macos'):
+        return install_macos_timer(interval_minutes)
+    if system in ('windows', 'win32', 'cygwin', 'msys'):
+        return install_windows_timer(interval_minutes)
+    log(f'unsupported timer platform: {system}')
+    return False
+
+
+def install_linux_timer(interval_minutes):
     user_dir = systemd_user_dir()
     user_dir.mkdir(parents=True, exist_ok=True)
     service = user_dir / 'agent-config-hub-sync.service'
@@ -449,7 +489,7 @@ def install_timer(interval_minutes=5):
         '[Service]\n'
         'Type=oneshot\n'
         f'WorkingDirectory={HUB}\n'
-        f'ExecStart={HUB}/bin/agent-sync sync\n'
+        f'ExecStart={HUB}/bin/agent-sync hook --platform timer --phase timer\n'
     )
     timer.write_text(
         '[Unit]\n'
@@ -465,22 +505,103 @@ def install_timer(interval_minutes=5):
         run(['systemctl', '--user', 'daemon-reload'], cwd=HUB, capture=True)
         enable = run(['systemctl', '--user', 'enable', '--now', 'agent-config-hub-sync.timer'], cwd=HUB, capture=True)
         if enable.returncode != 0:
-            log('timer files installed, but systemctl enable failed: ' + (enable.stdout or '').strip())
+            log('Linux timer files installed, but systemctl enable failed: ' + (enable.stdout or '').strip())
             return False
-        log(f'installed and enabled systemd user timer every {interval_minutes} minutes')
+        log(f'installed and enabled Linux systemd user timer every {interval_minutes} minutes')
         return True
-    log('timer files installed, but systemctl command not found')
+    log('Linux timer files installed, but systemctl command not found')
     return False
 
 
-def timer_status():
-    if shutil.which('systemctl'):
+def install_macos_timer(interval_minutes):
+    launch_dir = macos_launch_agents_dir()
+    launch_dir.mkdir(parents=True, exist_ok=True)
+    plist = launch_dir / 'com.agent-config-hub.sync.plist'
+    interval_seconds = interval_minutes * 60
+    plist_text = '\n'.join([
+        f'<?xml version="1.0" encoding="UTF-8"?>',
+        f'<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">',
+        f'<plist version="1.0">',
+        f'<dict>',
+        f'  <key>Label</key>',
+        f'  <string>com.agent-config-hub.sync</string>',
+        f'  <key>ProgramArguments</key>',
+        f'  <array>',
+        f'    <string>{HUB}/bin/agent-sync</string>',
+        f'    <string>hook</string>',
+        f'    <string>--platform</string>',
+        f'    <string>timer</string>',
+        f'    <string>--phase</string>',
+        f'    <string>timer</string>',
+        f'  </array>',
+        f'  <key>WorkingDirectory</key>',
+        f'  <string>{HUB}</string>',
+        f'  <key>StartInterval</key>',
+        f'  <integer>{interval_seconds}</integer>',
+        f'  <key>RunAtLoad</key>',
+        f'  <true/>',
+        f'  <key>StandardOutPath</key>',
+        f'  <string>{HUB}/logs/launchd.out.log</string>',
+        f'  <key>StandardErrorPath</key>',
+        f'  <string>{HUB}/logs/launchd.err.log</string>',
+        f'</dict>',
+        f'</plist>',
+        ''
+    ])
+    plist.write_text(plist_text)
+    if shutil.which('launchctl'):
+        run(['launchctl', 'unload', str(plist)], cwd=HUB, capture=True)
+        load = run(['launchctl', 'load', '-w', str(plist)], cwd=HUB, capture=True)
+        if load.returncode != 0:
+            log('macOS launchd plist installed, but launchctl load failed: ' + (load.stdout or '').strip())
+            return False
+        log(f'installed and loaded macOS launchd timer every {interval_minutes} minutes')
+        return True
+    log(f'macOS launchd plist installed at {plist}; run launchctl load -w {plist}')
+    return False
+
+
+def install_windows_timer(interval_minutes):
+    scripts_dir = HUB / 'scripts'
+    scripts_dir.mkdir(parents=True, exist_ok=True)
+    ps1 = scripts_dir / 'agent-sync-timer.ps1'
+    ps1.write_text(
+        '$ErrorActionPreference = "SilentlyContinue"\n'
+        f'Set-Location -LiteralPath "{HUB}"\n'
+        f'& "{HUB}/bin/agent-sync" hook --platform timer --phase timer *>> "{HUB}/logs/windows-task.log"\n'
+    )
+    task_name = 'AgentConfigHubSync'
+    if shutil.which('schtasks'):
+        create = run(['schtasks', '/Create', '/TN', task_name, '/SC', 'MINUTE', '/MO', str(interval_minutes), '/TR', f'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{ps1}"', '/F'], cwd=HUB, capture=True)
+        if create.returncode != 0:
+            log('Windows scheduled task script installed, but schtasks create failed: ' + (create.stdout or '').strip())
+            return False
+        log(f'installed Windows Scheduled Task {task_name} every {interval_minutes} minutes')
+        return True
+    startup = windows_startup_dir()
+    startup.mkdir(parents=True, exist_ok=True)
+    starter = startup / 'agent-config-hub-sync.cmd'
+    starter.write_text('@echo off\r\n' + f'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "{ps1}"\r\n')
+    log(f'Windows timer script installed at {ps1}; schtasks not found, startup fallback written to {starter}')
+    return False
+
+
+def timer_status(target_os=None):
+    system = (target_os or py_platform.system()).lower()
+    if system in ('linux', 'linux2') and shutil.which('systemctl'):
         p = run(['systemctl', '--user', 'list-timers', 'agent-config-hub-sync.timer', '--no-pager'], cwd=HUB, capture=True)
         log((p.stdout or '').strip() or 'no systemd timer status output')
         return p.returncode
-    log('systemctl not found; cannot query timer status')
+    if system in ('darwin', 'mac', 'macos') and shutil.which('launchctl'):
+        p = run(['launchctl', 'list', 'com.agent-config-hub.sync'], cwd=HUB, capture=True)
+        log((p.stdout or '').strip() or 'no launchd status output')
+        return p.returncode
+    if system in ('windows', 'win32', 'cygwin', 'msys') and shutil.which('schtasks'):
+        p = run(['schtasks', '/Query', '/TN', 'AgentConfigHubSync'], cwd=HUB, capture=True)
+        log((p.stdout or '').strip() or 'no schtasks status output')
+        return p.returncode
+    log(f'no native timer status command available for {system}')
     return 1
-
 
 def cmd_sync(args):
     manifest=load_manifest(); git_init_if_needed()
@@ -506,8 +627,8 @@ def main():
     sub.add_parser('doctor')
     sub.add_parser('install-hooks')
     sub.add_parser('install-shims')
-    tp=sub.add_parser('install-timer'); tp.add_argument('--interval-minutes', type=int, default=5)
-    sub.add_parser('timer-status')
+    tp=sub.add_parser('install-timer'); tp.add_argument('--interval-minutes', type=int, default=5); tp.add_argument('--platform', choices=['linux','macos','windows'], default=None)
+    tsp=sub.add_parser('timer-status'); tsp.add_argument('--platform', choices=['linux','macos','windows'], default=None)
     hp=sub.add_parser('hook'); hp.add_argument('--platform', default='unknown'); hp.add_argument('--phase', default='start', choices=['start', 'exit', 'timer', 'manual'])
     args=ap.parse_args()
     try:
@@ -524,9 +645,9 @@ def main():
         if args.cmd == 'install-shims':
             install_shims(); return 0
         if args.cmd == 'install-timer':
-            install_timer(args.interval_minutes); return doctor(manifest)
+            install_timer(args.interval_minutes, args.platform); return doctor(manifest)
         if args.cmd == 'timer-status':
-            return timer_status()
+            return timer_status(args.platform)
         if args.cmd == 'hook':
             # Harness startup path: never block startup on remote/network failure.
             try: return cmd_sync(args)

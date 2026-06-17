@@ -125,7 +125,18 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"gemini\"",
+            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"gemini\" --phase start",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"gemini\" --phase exit",
             "timeout": 30
           }
         ]

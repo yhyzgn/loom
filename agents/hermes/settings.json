@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"hermes\"",
+            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"hermes\" --phase start",
             "timeout": 30
           }
         ]
@@ -115,6 +115,17 @@
             "type": "command",
             "command": "bash \"/home/neo/.hermes/hooks/gsd-validate-commit.sh\"",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"hermes\" --phase exit",
+            "timeout": 30
           }
         ]
       }

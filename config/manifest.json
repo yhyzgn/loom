@@ -195,6 +195,60 @@
       "settings": "/home/neo/.codebuddy/settings.json",
       "event": "SessionStart",
       "schema": "settings-json"
+    },
+    {
+      "platform": "codex",
+      "settings": "/home/neo/.codex/hooks.json",
+      "event": "Stop",
+      "schema": "codex-hooks-json"
+    },
+    {
+      "platform": "claude",
+      "settings": "/home/neo/.claude/settings.json",
+      "event": "Stop",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "claude",
+      "settings": "/home/neo/.claude/settings.json",
+      "event": "SessionEnd",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "gemini",
+      "settings": "/home/neo/.gemini/settings.json",
+      "event": "SessionEnd",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "trae",
+      "settings": "/home/neo/.trae/settings.json",
+      "event": "SessionEnd",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "hermes",
+      "settings": "/home/neo/.hermes/settings.json",
+      "event": "SessionEnd",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "qwen",
+      "settings": "/home/neo/.qwen/settings.json",
+      "event": "SessionEnd",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "augment",
+      "settings": "/home/neo/.augment/settings.json",
+      "event": "SessionEnd",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "codebuddy",
+      "settings": "/home/neo/.codebuddy/settings.json",
+      "event": "SessionEnd",
+      "schema": "settings-json"
     }
   ],
   "local_only_files": [

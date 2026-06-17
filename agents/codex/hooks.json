@@ -22,7 +22,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"codex\"",
+            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"codex\" --phase start",
             "timeout": 30
           }
         ]
@@ -72,6 +72,15 @@
           {
             "type": "command",
             "command": "\"/home/neo/n/bin/node\" \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\"",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync\" hook --platform \"codex\" --phase exit",
             "timeout": 30
           }
         ]

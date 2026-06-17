@@ -436,7 +436,7 @@ def install_shims():
         out.write_text(script)
         out.chmod(0o755)
         installed.append(c)
-    block = '# >>> loom shims >>>\nexport PATH="$HOME/Projects/neo/pub/loom/shims:$PATH"\n# <<< loom shims <<<\n'
+    block = '# >>> loom shims >>>\nexport PATH="$HOME/Projects/neo/pub/loom/bin:$HOME/Projects/neo/pub/loom/shims:$PATH"\n# <<< loom shims <<<\n'
     for rc_name in ['.bashrc', '.zshrc']:
         rc = Path.home() / rc_name
         old = rc.read_text() if rc.exists() else ''

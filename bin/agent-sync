@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse, datetime as dt, fnmatch, hashlib, json, os, shutil, stat, subprocess, sys, time
+import argparse, datetime as dt, fnmatch, hashlib, json, os, platform as py_platform, shutil, stat, subprocess, sys, time
 from pathlib import Path
 
 HUB = Path(__file__).resolve().parents[1]
@@ -381,7 +381,7 @@ def install_shims():
     shimdir = HUB / 'shims'
     shimdir.mkdir(parents=True, exist_ok=True)
     current_path = os.environ.get('PATH', '')
-    search_path = ':'.join([x for x in current_path.split(':') if Path(x).resolve() != shimdir.resolve()])
+    search_path = ':'.join([x for x in current_path.split(':') if x and Path(x).resolve() != shimdir.resolve()])
     installed = []
     for c in commands:
         real = shutil.which(c, path=search_path)
@@ -389,11 +389,27 @@ def install_shims():
             continue
         script = (
             '#!/usr/bin/env bash\n'
-            'set -euo pipefail\n'
-            'if [ "${AGENT_SYNC_SHIM_BYPASS:-0}" != "1" ]; then\n'
-            f'  AGENT_SYNC_SHIM_BYPASS=1 "{HUB}/bin/agent-sync" hook --platform "{c}" >/tmp/agent-sync-{c}.log 2>&1 || true\n'
-            'fi\n'
-            f'exec "{real}" "$@"\n'
+            'set -uo pipefail\n'
+            f'AGENT_SYNC_HUB="{HUB}"\n'
+            f'AGENT_SYNC_PLATFORM="{c}"\n'
+            f'AGENT_SYNC_REAL="{real}"\n'
+            f'AGENT_SYNC_LOG="/tmp/agent-sync-{c}.log"\n'
+            'agent_sync_run() {\n'
+            '  local phase="$1"\n'
+            '  if [ "${AGENT_SYNC_SHIM_BYPASS:-0}" != "1" ]; then\n'
+            '    AGENT_SYNC_SHIM_BYPASS=1 "$AGENT_SYNC_HUB/bin/agent-sync" hook --platform "$AGENT_SYNC_PLATFORM" --phase "$phase" >>"$AGENT_SYNC_LOG" 2>&1 || true\n'
+            '  fi\n'
+            '}\n'
+            'agent_sync_on_exit() {\n'
+            '  local status=$?\n'
+            '  agent_sync_run exit\n'
+            '  exit "$status"\n'
+            '}\n'
+            'agent_sync_run start\n'
+            'trap agent_sync_on_exit EXIT\n'
+            '"$AGENT_SYNC_REAL" "$@"\n'
+            'status=$?\n'
+            'exit "$status"\n'
         )
         out = shimdir / c
         out.write_text(script)
@@ -409,12 +425,68 @@ def install_shims():
             rc.write_text(pre + '\n' + block + post)
         else:
             rc.write_text(old.rstrip() + '\n\n' + block)
-    log('installed command shims: ' + ', '.join(installed))
+    log('installed command shims with start/exit sync: ' + ', '.join(installed))
     return installed
+
+
+def systemd_user_dir():
+    return Path.home() / '.config' / 'systemd' / 'user'
+
+
+def install_timer(interval_minutes=5):
+    interval_minutes = max(1, int(interval_minutes))
+    system = py_platform.system().lower()
+    if system != 'linux':
+        log(f'install-timer currently writes Linux systemd user timers only; detected {system}')
+        return False
+    user_dir = systemd_user_dir()
+    user_dir.mkdir(parents=True, exist_ok=True)
+    service = user_dir / 'agent-config-hub-sync.service'
+    timer = user_dir / 'agent-config-hub-sync.timer'
+    service.write_text(
+        '[Unit]\n'
+        'Description=Sync agent harness configuration hub\n\n'
+        '[Service]\n'
+        'Type=oneshot\n'
+        f'WorkingDirectory={HUB}\n'
+        f'ExecStart={HUB}/bin/agent-sync sync\n'
+    )
+    timer.write_text(
+        '[Unit]\n'
+        'Description=Periodic sync for agent harness configuration hub\n\n'
+        '[Timer]\n'
+        'OnBootSec=2min\n'
+        f'OnUnitActiveSec={interval_minutes}min\n'
+        'Persistent=true\n\n'
+        '[Install]\n'
+        'WantedBy=timers.target\n'
+    )
+    if shutil.which('systemctl'):
+        run(['systemctl', '--user', 'daemon-reload'], cwd=HUB, capture=True)
+        enable = run(['systemctl', '--user', 'enable', '--now', 'agent-config-hub-sync.timer'], cwd=HUB, capture=True)
+        if enable.returncode != 0:
+            log('timer files installed, but systemctl enable failed: ' + (enable.stdout or '').strip())
+            return False
+        log(f'installed and enabled systemd user timer every {interval_minutes} minutes')
+        return True
+    log('timer files installed, but systemctl command not found')
+    return False
+
+
+def timer_status():
+    if shutil.which('systemctl'):
+        p = run(['systemctl', '--user', 'list-timers', 'agent-config-hub-sync.timer', '--no-pager'], cwd=HUB, capture=True)
+        log((p.stdout or '').strip() or 'no systemd timer status output')
+        return p.returncode
+    log('systemctl not found; cannot query timer status')
+    return 1
 
 
 def cmd_sync(args):
     manifest=load_manifest(); git_init_if_needed()
+    phase = getattr(args, "phase", "manual")
+    platform = getattr(args, "platform", "manual")
+    log(f'sync begin platform={platform} phase={phase}')
     changed=export_local(manifest); log(f'exported {len(changed)} managed entries')
     git_commit(f'agent-sync: capture local config {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     pull_rebase()
@@ -434,7 +506,9 @@ def main():
     sub.add_parser('doctor')
     sub.add_parser('install-hooks')
     sub.add_parser('install-shims')
-    hp=sub.add_parser('hook'); hp.add_argument('--platform', default='unknown')
+    tp=sub.add_parser('install-timer'); tp.add_argument('--interval-minutes', type=int, default=5)
+    sub.add_parser('timer-status')
+    hp=sub.add_parser('hook'); hp.add_argument('--platform', default='unknown'); hp.add_argument('--phase', default='start', choices=['start', 'exit', 'timer', 'manual'])
     args=ap.parse_args()
     try:
         acquire_lock()
@@ -449,6 +523,10 @@ def main():
             installed=install_hooks(manifest); log('installed hooks: '+', '.join(installed)); return doctor(manifest)
         if args.cmd == 'install-shims':
             install_shims(); return 0
+        if args.cmd == 'install-timer':
+            install_timer(args.interval_minutes); return doctor(manifest)
+        if args.cmd == 'timer-status':
+            return timer_status()
         if args.cmd == 'hook':
             # Harness startup path: never block startup on remote/network failure.
             try: return cmd_sync(args)

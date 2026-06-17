@@ -1,6 +1,22 @@
 #!/usr/bin/env bash
-set -euo pipefail
-if [ "${AGENT_SYNC_SHIM_BYPASS:-0}" != "1" ]; then
-  AGENT_SYNC_SHIM_BYPASS=1 "/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync" hook --platform "codex" >/tmp/agent-sync-codex.log 2>&1 || true
-fi
-exec "/home/neo/.bun/bin/codex" "$@"
+set -uo pipefail
+AGENT_SYNC_HUB="/home/neo/Projects/neo/pub/agent-config-hub"
+AGENT_SYNC_PLATFORM="codex"
+AGENT_SYNC_REAL="/home/neo/.bun/bin/codex"
+AGENT_SYNC_LOG="/tmp/agent-sync-codex.log"
+agent_sync_run() {
+  local phase="$1"
+  if [ "${AGENT_SYNC_SHIM_BYPASS:-0}" != "1" ]; then
+    AGENT_SYNC_SHIM_BYPASS=1 "$AGENT_SYNC_HUB/bin/agent-sync" hook --platform "$AGENT_SYNC_PLATFORM" --phase "$phase" >>"$AGENT_SYNC_LOG" 2>&1 || true
+  fi
+}
+agent_sync_on_exit() {
+  local status=$?
+  agent_sync_run exit
+  exit "$status"
+}
+agent_sync_run start
+trap agent_sync_on_exit EXIT
+"$AGENT_SYNC_REAL" "$@"
+status=$?
+exit "$status"

@@ -80,7 +80,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/loom/bin/loom\" hook --platform \"codex\" --phase exit",
+            "command": "/bin/bash -lc 'mkdir -p /home/neo/Projects/neo/pub/loom/logs; /home/neo/Projects/neo/pub/loom/bin/loom hook --platform codex --phase exit >>/home/neo/Projects/neo/pub/loom/logs/codex-stop-hook.log 2>&1; printf '\"'\"'%s\\n'\"'\"' '\"'\"'{}'\"'\"''",
             "timeout": 30
           }
         ]

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-import argparse, datetime as dt, fnmatch, hashlib, json, os, platform as py_platform, shutil, stat, subprocess, sys, time
+import argparse, datetime as dt, fnmatch, hashlib, json, os, platform as py_platform, shlex, shutil, stat, subprocess, sys, time
 from pathlib import Path
 
 HUB = Path(__file__).resolve().parents[1]
@@ -331,6 +331,15 @@ def install_hooks(manifest):
         arr=hooks.setdefault(event, [])
         phase = hook_phase_for_event(event)
         cmd = hook_cmd.format(platform=platform) + f' --phase {phase}'
+        if platform == 'codex' and phase == 'exit':
+            log_file = LOG_DIR / 'codex-stop-hook.log'
+            inner = (
+                f'mkdir -p {shlex.quote(str(LOG_DIR))}; '
+                f'{shlex.quote(str(HUB / "bin" / "loom"))} hook --platform {shlex.quote(platform)} --phase {shlex.quote(phase)} '
+                f'>>{shlex.quote(str(log_file))} 2>&1; '
+                "printf '%s\\n' '{}'"
+            )
+            cmd = f'/bin/bash -lc {shlex.quote(inner)}'
         def is_agent_sync_hook(hook):
             return isinstance(hook, dict) and '/bin/loom' in hook.get('command', '') and ' hook ' in hook.get('command', '')
         cleaned=[]

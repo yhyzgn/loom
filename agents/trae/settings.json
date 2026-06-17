@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.agent-personas/claude-fable5/hooks/default-context.js\" --platform \"trae\" --event \"SessionStart\""
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Claude Fable 5"
+  short_description: "Codex-safe Fable5 persona adapter"
+  default_prompt: "Use $claude-fable5 to answer with the Codex-safe Fable5 persona."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,13 @@
+logs/*.log
+.agent-sync.lock
+state/*.tmp
+
+# never store secrets/caches
+**/auth.json
+**/*credentials*.json
+**/oauth*.json
+**/node_modules/
+**/tmp/
+**/cache/
+**/sessions/
+**/*.db*

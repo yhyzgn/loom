@@ -1,0 +1,341 @@
+#!/usr/bin/env python3
+import argparse, datetime as dt, fnmatch, hashlib, json, os, shutil, stat, subprocess, sys, time
+from pathlib import Path
+
+HUB = Path(__file__).resolve().parents[1]
+MANIFEST = HUB / 'config' / 'manifest.json'
+LOCK = HUB / '.agent-sync.lock'
+LOG_DIR = HUB / 'logs'
+STATE_DIR = HUB / 'state'
+HOOK_MARKER = 'agent-config-hub/bin/agent-sync hook'
+NODE = '/home/neo/n/bin/node'
+
+
+def log(msg):
+    print(msg)
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    with (LOG_DIR / 'agent-sync.log').open('a') as f:
+        f.write(f"{dt.datetime.now().isoformat()} {msg}\n")
+
+
+def run(cmd, cwd=HUB, check=False, capture=True):
+    p = subprocess.run(cmd, cwd=str(cwd), text=True, stdout=subprocess.PIPE if capture else None, stderr=subprocess.STDOUT if capture else None)
+    if check and p.returncode != 0:
+        raise RuntimeError(f"command failed {cmd}: {p.stdout}")
+    return p
+
+
+def load_manifest():
+    return json.loads(MANIFEST.read_text())
+
+
+def sha256_path(p):
+    h = hashlib.sha256()
+    with open(p, 'rb') as f:
+        for b in iter(lambda: f.read(1024 * 1024), b''):
+            h.update(b)
+    return h.hexdigest()
+
+
+def is_excluded(path, patterns):
+    s = str(path)
+    return any(fnmatch.fnmatch(s, pat) or fnmatch.fnmatch('/' + s, pat) for pat in patterns)
+
+
+def ensure_parent(p):
+    p.parent.mkdir(parents=True, exist_ok=True)
+
+
+def backup_target(target, backup_root):
+    t = Path(target)
+    if not t.exists() and not t.is_symlink():
+        return None
+    rel = str(t).lstrip('/').replace('/', '__')
+    stamp = dt.datetime.now().strftime('%Y%m%d%H%M%S')
+    b = Path(backup_root) / f'{rel}.{stamp}.bak'
+    b.parent.mkdir(parents=True, exist_ok=True)
+    if t.is_dir() and not t.is_symlink():
+        shutil.copytree(t, b, symlinks=True)
+    else:
+        shutil.copy2(t, b)
+    return b
+
+
+def copy_file(src, dst, mode=None):
+    ensure_parent(dst)
+    shutil.copy2(src, dst)
+    if mode:
+        os.chmod(dst, int(mode, 8))
+
+
+def copy_dir(src, dst, exclude_patterns):
+    src = Path(src); dst = Path(dst)
+    if dst.exists():
+        shutil.rmtree(dst)
+    def ignore(dirpath, names):
+        ignored=[]
+        base=Path(dirpath)
+        for n in names:
+            p=base/n
+            rel=p.relative_to(src)
+            if is_excluded(rel, exclude_patterns) or is_excluded(p, exclude_patterns):
+                ignored.append(n)
+        return ignored
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(src, dst, ignore=ignore, symlinks=True)
+
+
+def validate_json(path):
+    with open(path) as f:
+        return json.load(f)
+
+
+def validate_codex_hooks(path):
+    j = validate_json(path)
+    if set(j.keys()) != {'hooks'}:
+        raise ValueError(f'{path} must have only top-level hooks key, got {list(j.keys())}')
+    return j
+
+
+SENSITIVE_SENTINEL = "__AGENT_SYNC_LOCAL_SECRET__"
+SENSITIVE_KEY_PARTS = ('token', 'apikey', 'api_key', 'secret', 'password', 'credential', 'auth')
+
+
+def is_sensitive_key(key):
+    k = str(key).lower().replace('-', '_')
+    # Do not treat general config words like selected auth method as secrets unless they hold credentials.
+    if k in ('auth', 'authentication', 'selectedtype', 'selected_type'):
+        return False
+    return any(part in k for part in SENSITIVE_KEY_PARTS)
+
+
+def sanitize_json_value(value, key=''):
+    if is_sensitive_key(key) and isinstance(value, (str, int, float, bool)) and value not in ('', None):
+        return SENSITIVE_SENTINEL
+    if isinstance(value, dict):
+        return {k: sanitize_json_value(v, k) for k, v in value.items()}
+    if isinstance(value, list):
+        return [sanitize_json_value(v, key) for v in value]
+    return value
+
+
+def merge_preserve_local_secrets(src, local):
+    if src == SENSITIVE_SENTINEL:
+        return local if local is not None else src
+    if isinstance(src, dict):
+        local = local if isinstance(local, dict) else {}
+        return {k: merge_preserve_local_secrets(v, local.get(k)) for k, v in src.items()}
+    if isinstance(src, list):
+        local = local if isinstance(local, list) else []
+        out=[]
+        for i, v in enumerate(src):
+            out.append(merge_preserve_local_secrets(v, local[i] if i < len(local) else None))
+        return out
+    return src
+
+
+def export_local(manifest):
+    changed=[]
+    patterns=manifest.get('exclude_globs', [])
+    for item in manifest['managed_files']:
+        src = HUB / item['source']
+        tgt = Path(item['target'])
+        if not tgt.exists():
+            continue
+        if is_excluded(tgt, patterns):
+            continue
+        src.parent.mkdir(parents=True, exist_ok=True)
+        if item['type'] == 'dir':
+            copy_dir(tgt, src, patterns)
+        elif item['type'] == 'json':
+            data = sanitize_json_value(validate_json(tgt))
+            src.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
+        else:
+            copy_file(tgt, src, item.get('mode'))
+        changed.append(item['name'])
+    return changed
+
+
+def apply_repo(manifest):
+    applied=[]
+    patterns=manifest.get('exclude_globs', [])
+    backup_root=manifest.get('backup_root', '/home/neo/.agent-config-hub-backups')
+    for item in manifest['managed_files']:
+        src = HUB / item['source']
+        tgt = Path(item['target'])
+        if not src.exists():
+            continue
+        if item.get('schema') == 'codex-hooks' or (item['type'] == 'json' and tgt.name == 'hooks.json' and '.codex' in str(tgt)):
+            validate_codex_hooks(src)
+        elif item['type'] == 'json':
+            validate_json(src)
+        backup_target(tgt, backup_root)
+        if item['type'] == 'dir':
+            copy_dir(src, tgt, patterns)
+        elif item['type'] == 'json':
+            source_data = validate_json(src)
+            local_data = validate_json(tgt) if tgt.exists() and tgt.read_text().strip() else None
+            merged = merge_preserve_local_secrets(source_data, local_data)
+            ensure_parent(tgt)
+            tgt.write_text(json.dumps(merged, indent=2, ensure_ascii=False) + '\n')
+        else:
+            copy_file(src, tgt, item.get('mode'))
+        applied.append(item['name'])
+    return applied
+
+
+def git_has_repo():
+    return (HUB / '.git').exists()
+
+
+def git_init_if_needed():
+    if not git_has_repo():
+        run(['git', 'init'], check=True)
+        run(['git', 'branch', '-M', 'main'], check=False)
+    gitignore = HUB / '.gitignore'
+    if not gitignore.exists():
+        gitignore.write_text('\n'.join(['logs/*.log', '.agent-sync.lock', 'state/*.tmp', '', '# never store secrets/caches', '**/auth.json', '**/*credentials*.json', '**/oauth*.json', '**/node_modules/', '**/tmp/', '**/cache/', '**/sessions/', '**/*.db*']) + '\n')
+
+
+def git_commit(message):
+    git_init_if_needed()
+    run(['git', 'add', '-A'], check=True)
+    status = run(['git', 'status', '--porcelain']).stdout.strip()
+    if not status:
+        return False
+    run(['git', 'commit', '-m', message], check=True)
+    return True
+
+
+def has_origin():
+    if not git_has_repo():
+        return False
+    return run(['git', 'remote', 'get-url', 'origin']).returncode == 0
+
+
+def pull_rebase():
+    if not has_origin():
+        log('No git origin configured; skip pull')
+        return False
+    p=run(['git', 'pull', '--rebase', '--autostash', 'origin', 'main'])
+    log(p.stdout.strip() or 'pull ok')
+    return p.returncode == 0
+
+
+def push():
+    if not has_origin():
+        log('No git origin configured; skip push')
+        return False
+    p=run(['git', 'push', 'origin', 'HEAD:main'])
+    log(p.stdout.strip() or 'push ok')
+    return p.returncode == 0
+
+
+def install_hooks(manifest):
+    installed=[]
+    hook_cmd = f'"{NODE}" "{HUB}/bin/agent-sync" hook --platform "{{platform}}"'
+    for h in manifest.get('hook_install', []):
+        platform=h['platform']; settings=Path(h['settings']); event=h['event']
+        settings.parent.mkdir(parents=True, exist_ok=True)
+        data={}
+        if settings.exists() and settings.read_text().strip():
+            data=json.loads(settings.read_text())
+        hooks=data.setdefault('hooks', {})
+        arr=hooks.setdefault(event, [])
+        cmd=hook_cmd.format(platform=platform)
+        exists=any(cmd == hh.get('command') for group in arr for hh in group.get('hooks', []) if isinstance(hh, dict))
+        if not exists:
+            arr.insert(0, {'hooks':[{'type':'command','command':cmd,'timeout':30}]})
+            settings.write_text(json.dumps(data, indent=2, ensure_ascii=False)+'\n')
+            installed.append(platform)
+        if h.get('schema') == 'codex-hooks-json':
+            validate_codex_hooks(settings)
+    return installed
+
+
+def doctor(manifest):
+    errors=[]
+    for item in manifest['managed_files']:
+        src=HUB/item['source']; tgt=Path(item['target'])
+        if not src.exists(): errors.append(f'missing source {item["name"]}: {src}')
+        if item['type']=='json' and src.exists():
+            try:
+                if item.get('schema') == 'codex-hooks': validate_codex_hooks(src)
+                else: validate_json(src)
+            except Exception as e: errors.append(str(e))
+    for h in manifest.get('hook_install', []):
+        p=Path(h['settings'])
+        if p.exists():
+            try:
+                j=json.loads(p.read_text())
+                if h.get('schema') == 'codex-hooks-json' and set(j.keys()) != {'hooks'}:
+                    errors.append(f'{p} has invalid top-level keys {list(j.keys())}')
+            except Exception as e: errors.append(f'{p}: {e}')
+    if errors:
+        for e in errors: log('ERROR '+e)
+        return 1
+    log('doctor ok')
+    return 0
+
+
+def acquire_lock():
+    start=time.time()
+    while True:
+        try:
+            fd=os.open(LOCK, os.O_CREAT|os.O_EXCL|os.O_WRONLY)
+            os.write(fd, str(os.getpid()).encode()); os.close(fd); return
+        except FileExistsError:
+            if time.time()-start > 20:
+                raise RuntimeError('agent-sync lock timeout')
+            time.sleep(0.5)
+
+
+def release_lock():
+    try: LOCK.unlink()
+    except FileNotFoundError: pass
+
+
+def cmd_sync(args):
+    manifest=load_manifest(); git_init_if_needed()
+    changed=export_local(manifest); log(f'exported {len(changed)} managed entries')
+    git_commit(f'agent-sync: capture local config {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+    pull_rebase()
+    applied=apply_repo(manifest); log(f'applied {len(applied)} managed entries')
+    install_hooks(manifest)
+    git_commit(f'agent-sync: apply hook wiring {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+    push()
+    return doctor(manifest)
+
+
+def main():
+    ap=argparse.ArgumentParser()
+    sub=ap.add_subparsers(dest='cmd', required=True)
+    sub.add_parser('export')
+    sub.add_parser('apply')
+    sub.add_parser('sync')
+    sub.add_parser('doctor')
+    sub.add_parser('install-hooks')
+    hp=sub.add_parser('hook'); hp.add_argument('--platform', default='unknown')
+    args=ap.parse_args()
+    try:
+        acquire_lock()
+        manifest=load_manifest(); git_init_if_needed()
+        if args.cmd == 'export':
+            changed=export_local(manifest); log(f'exported {len(changed)} managed entries'); git_commit(f'agent-sync: export local config {dt.datetime.now().isoformat()}'); return 0
+        if args.cmd == 'apply':
+            pull_rebase(); applied=apply_repo(manifest); log(f'applied {len(applied)} managed entries'); install_hooks(manifest); return doctor(manifest)
+        if args.cmd == 'sync': return cmd_sync(args)
+        if args.cmd == 'doctor': return doctor(manifest)
+        if args.cmd == 'install-hooks':
+            installed=install_hooks(manifest); log('installed hooks: '+', '.join(installed)); return doctor(manifest)
+        if args.cmd == 'hook':
+            # Harness startup path: never block startup on remote/network failure.
+            try: return cmd_sync(args)
+            except Exception as e:
+                log(f'hook sync skipped/failed for {args.platform}: {e}')
+                return 0
+    finally:
+        release_lock()
+
+if __name__ == '__main__':
+    sys.exit(main())

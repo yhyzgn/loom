@@ -1,5 +1,7 @@
 # loom
 
+[中文说明](README.zh-CN.md)
+
 `loom` is a small, personal configuration hub for synchronizing global AI-agent / coding-agent harness settings across your own machines.
 
 It keeps a Git-backed copy of selected agent configuration files, installs startup / exit hooks where supported, adds command shims for common CLIs, and runs a periodic timer so local safe configuration changes can be pushed and pulled across machines.
@@ -257,6 +259,16 @@ Examples of event types used by supported harnesses:
 - `SessionEnd`
 
 To keep harness startup fast, automatic hook/timer sync is throttled to at most once per local calendar day. After the first successful automatic sync of the day, later startup, exit, and timer hooks skip quickly. Manual `loom sync` always runs a full sync.
+
+The daily throttle state is local runtime state stored under:
+
+```text
+state/last-auto-sync.json
+```
+
+This file is intentionally ignored by Git.
+
+For Codex specifically, `Stop` hooks must return valid JSON on stdout. `loom` therefore installs a JSON-safe Codex Stop hook wrapper: sync logs are redirected to `logs/codex-stop-hook.log`, while stdout returns `{}`. This prevents Codex errors such as `hook returned invalid stop hook JSON output`.
 
 Exact support depends on the harness.
 

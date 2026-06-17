@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
-# Conservative staged secret scanner for agent-config-hub.
+# Conservative staged secret scanner for loom.
 # Blocks credential-looking file paths and likely raw API keys/tokens.
 if git diff --cached --name-only | grep -Ei '(^|/)(auth|oauth|.*credentials.*|.*token.*|.*secret.*|\.env)(\.|/|$)' >/dev/null; then
-  echo 'agent-config-hub pre-commit: refusing to commit credential/auth/token/secret file path.' >&2
+  echo 'loom pre-commit: refusing to commit credential/auth/token/secret file path.' >&2
   exit 1
 fi
 TMP=$(mktemp)
@@ -24,6 +24,6 @@ for line in open(p, errors='ignore'):
     if '__AGENT_SYNC_LOCAL_SECRET__' in line:
         continue
     if any(rx.search(line) for rx in patterns):
-        print('agent-config-hub pre-commit: likely secret detected in staged diff.', file=sys.stderr)
+        print('loom pre-commit: likely secret detected in staged diff.', file=sys.stderr)
         sys.exit(1)
 PY

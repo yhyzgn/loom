@@ -7,7 +7,7 @@ MANIFEST = HUB / 'config' / 'manifest.json'
 LOCK = HUB / '.loom.lock'
 LOG_DIR = HUB / 'logs'
 STATE_DIR = HUB / 'state'
-HOOK_MARKER = 'agent-config-hub/bin/loom hook'
+HOOK_MARKER = 'loom/bin/loom hook'
 
 
 def log(msg):
@@ -173,7 +173,7 @@ def export_local(manifest):
 def apply_repo(manifest):
     applied=[]
     patterns=manifest.get('exclude_globs', [])
-    backup_root=manifest.get('backup_root', '/home/neo/.agent-config-hub-backups')
+    backup_root=manifest.get('backup_root', '/home/neo/.loom-backups')
     for item in manifest['managed_files']:
         src = HUB / item['source']
         tgt = Path(item['target'])
@@ -436,13 +436,13 @@ def install_shims():
         out.write_text(script)
         out.chmod(0o755)
         installed.append(c)
-    block = '# >>> agent-config-hub shims >>>\nexport PATH="$HOME/Projects/neo/pub/agent-config-hub/shims:$PATH"\n# <<< agent-config-hub shims <<<\n'
+    block = '# >>> loom shims >>>\nexport PATH="$HOME/Projects/neo/pub/loom/shims:$PATH"\n# <<< loom shims <<<\n'
     for rc_name in ['.bashrc', '.zshrc']:
         rc = Path.home() / rc_name
         old = rc.read_text() if rc.exists() else ''
-        if '# >>> agent-config-hub shims >>>' in old and '# <<< agent-config-hub shims <<<' in old:
-            pre = old.split('# >>> agent-config-hub shims >>>')[0].rstrip()
-            post = old.split('# <<< agent-config-hub shims <<<', 1)[1]
+        if '# >>> loom shims >>>' in old and '# <<< loom shims <<<' in old:
+            pre = old.split('# >>> loom shims >>>')[0].rstrip()
+            post = old.split('# <<< loom shims <<<', 1)[1]
             rc.write_text(pre + '\n' + block + post)
         else:
             rc.write_text(old.rstrip() + '\n\n' + block)
@@ -524,7 +524,7 @@ def install_macos_timer(interval_minutes):
         f'<plist version="1.0">',
         f'<dict>',
         f'  <key>Label</key>',
-        f'  <string>com.agent-config-hub.sync</string>',
+        f'  <string>com.loom.sync</string>',
         f'  <key>ProgramArguments</key>',
         f'  <array>',
         f'    <string>{HUB}/bin/loom</string>',

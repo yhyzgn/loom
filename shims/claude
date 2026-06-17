@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
-AGENT_SYNC_HUB="/home/neo/Projects/neo/pub/agent-config-hub"
+AGENT_SYNC_HUB="/home/neo/Projects/neo/pub/loom"
 AGENT_SYNC_PLATFORM="claude"
 AGENT_SYNC_REAL="/home/neo/.bun/bin/claude"
 AGENT_SYNC_LOG="/tmp/agent-sync-claude.log"

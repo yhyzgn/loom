@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "root": "/home/neo/Projects/neo/pub/agent-config-hub",
-  "backup_root": "/home/neo/.agent-config-hub-backups",
+  "root": "/home/neo/Projects/neo/pub/loom",
+  "backup_root": "/home/neo/.loom-backups",
   "exclude_globs": [
     "**/auth.json",
     "**/auth.lock",

@@ -376,6 +376,43 @@ def release_lock():
     except FileNotFoundError: pass
 
 
+def install_shims():
+    commands = ['codex', 'gemini', 'opencode', 'claude', 'hermes']
+    shimdir = HUB / 'shims'
+    shimdir.mkdir(parents=True, exist_ok=True)
+    current_path = os.environ.get('PATH', '')
+    search_path = ':'.join([x for x in current_path.split(':') if Path(x).resolve() != shimdir.resolve()])
+    installed = []
+    for c in commands:
+        real = shutil.which(c, path=search_path)
+        if not real:
+            continue
+        script = (
+            '#!/usr/bin/env bash\n'
+            'set -euo pipefail\n'
+            'if [ "${AGENT_SYNC_SHIM_BYPASS:-0}" != "1" ]; then\n'
+            f'  AGENT_SYNC_SHIM_BYPASS=1 "{HUB}/bin/agent-sync" hook --platform "{c}" >/tmp/agent-sync-{c}.log 2>&1 || true\n'
+            'fi\n'
+            f'exec "{real}" "$@"\n'
+        )
+        out = shimdir / c
+        out.write_text(script)
+        out.chmod(0o755)
+        installed.append(c)
+    block = '# >>> agent-config-hub shims >>>\nexport PATH="$HOME/Projects/neo/pub/agent-config-hub/shims:$PATH"\n# <<< agent-config-hub shims <<<\n'
+    for rc_name in ['.bashrc', '.zshrc']:
+        rc = Path.home() / rc_name
+        old = rc.read_text() if rc.exists() else ''
+        if '# >>> agent-config-hub shims >>>' in old and '# <<< agent-config-hub shims <<<' in old:
+            pre = old.split('# >>> agent-config-hub shims >>>')[0].rstrip()
+            post = old.split('# <<< agent-config-hub shims <<<', 1)[1]
+            rc.write_text(pre + '\n' + block + post)
+        else:
+            rc.write_text(old.rstrip() + '\n\n' + block)
+    log('installed command shims: ' + ', '.join(installed))
+    return installed
+
+
 def cmd_sync(args):
     manifest=load_manifest(); git_init_if_needed()
     changed=export_local(manifest); log(f'exported {len(changed)} managed entries')
@@ -396,6 +433,7 @@ def main():
     sub.add_parser('sync')
     sub.add_parser('doctor')
     sub.add_parser('install-hooks')
+    sub.add_parser('install-shims')
     hp=sub.add_parser('hook'); hp.add_argument('--platform', default='unknown')
     args=ap.parse_args()
     try:
@@ -409,6 +447,8 @@ def main():
         if args.cmd == 'doctor': return doctor(manifest)
         if args.cmd == 'install-hooks':
             installed=install_hooks(manifest); log('installed hooks: '+', '.join(installed)); return doctor(manifest)
+        if args.cmd == 'install-shims':
+            install_shims(); return 0
         if args.cmd == 'hook':
             # Harness startup path: never block startup on remote/network failure.
             try: return cmd_sync(args)

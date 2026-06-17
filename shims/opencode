@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+if [ "${AGENT_SYNC_SHIM_BYPASS:-0}" != "1" ]; then
+  AGENT_SYNC_SHIM_BYPASS=1 "/home/neo/Projects/neo/pub/agent-config-hub/bin/agent-sync" hook --platform "opencode" >/tmp/agent-sync-opencode.log 2>&1 || true
+fi
+exec "/home/neo/.bun/bin/opencode" "$@"

@@ -1,13 +1,23 @@
 logs/*.log
 .agent-sync.lock
 state/*.tmp
+__pycache__/
+*.pyc
 
-# never store secrets/caches
+# never store secrets/caches/sessions
 **/auth.json
+**/auth.lock
 **/*credentials*.json
+**/*credential*.json
 **/oauth*.json
+**/*token*
+**/*secret*
+**/*.pem
+**/*.key
+**/.env
 **/node_modules/
 **/tmp/
 **/cache/
 **/sessions/
+**/history/
 **/*.db*

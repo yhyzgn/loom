@@ -8,7 +8,6 @@ LOCK = HUB / '.agent-sync.lock'
 LOG_DIR = HUB / 'logs'
 STATE_DIR = HUB / 'state'
 HOOK_MARKER = 'agent-config-hub/bin/agent-sync hook'
-NODE = '/home/neo/n/bin/node'
 
 
 def log(msg):
@@ -109,6 +108,18 @@ def is_sensitive_key(key):
     return any(part in k for part in SENSITIVE_KEY_PARTS)
 
 
+def contains_sensitive_key(value):
+    if isinstance(value, dict):
+        for k, v in value.items():
+            if is_sensitive_key(k):
+                return True
+            if contains_sensitive_key(v):
+                return True
+    elif isinstance(value, list):
+        return any(contains_sensitive_key(v) for v in value)
+    return False
+
+
 def sanitize_json_value(value, key=''):
     if is_sensitive_key(key) and isinstance(value, (str, int, float, bool)) and value not in ('', None):
         return SENSITIVE_SENTINEL
@@ -148,7 +159,10 @@ def export_local(manifest):
         if item['type'] == 'dir':
             copy_dir(tgt, src, patterns)
         elif item['type'] == 'json':
-            data = sanitize_json_value(validate_json(tgt))
+            data = validate_json(tgt)
+            if contains_sensitive_key(data):
+                log(f'skip sensitive json export {item["name"]}: {tgt}')
+                continue
             src.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
         else:
             copy_file(tgt, src, item.get('mode'))
@@ -231,9 +245,75 @@ def push():
     return p.returncode == 0
 
 
+def escape_toml_basic(s):
+    return s.replace('\\', '\\\\').replace('"', '\\"')
+
+
+def codex_event_label(event):
+    out=[]
+    for i,ch in enumerate(event):
+        if ch.isupper() and i:
+            out.append('_')
+        out.append(ch.lower())
+    return ''.join(out)
+
+
+def canonical_json(value):
+    if isinstance(value, list):
+        return [canonical_json(v) for v in value]
+    if isinstance(value, dict):
+        return {k: canonical_json(value[k]) for k in sorted(value)}
+    return value
+
+
+def codex_trusted_hash(event, entry, hook):
+    identity = {
+        'event_name': codex_event_label(event),
+        'hooks': [{
+            'type': hook.get('type', 'command'),
+            'command': hook['command'],
+            'timeout': max(1, hook.get('timeout', 600)),
+            'async': False,
+        }]
+    }
+    if entry.get('matcher'):
+        identity['matcher'] = entry['matcher']
+    payload = json.dumps(canonical_json(identity), separators=(',', ':'))
+    return 'sha256:' + hashlib.sha256(payload.encode()).hexdigest()
+
+
+def update_codex_config_trust(hooks_path):
+    hooks_path = Path(hooks_path)
+    config_path = hooks_path.parent / 'config.toml'
+    if not config_path.exists() or not hooks_path.exists():
+        return
+    data = validate_codex_hooks(hooks_path)
+    text = config_path.read_text()
+    additions = []
+    import re
+    for event, entries in data.get('hooks', {}).items():
+        label = codex_event_label(event)
+        for gi, entry in enumerate(entries):
+            for hi, hook in enumerate(entry.get('hooks', [])):
+                if not isinstance(hook, dict) or hook.get('type') != 'command' or 'command' not in hook:
+                    continue
+                key = f'{hooks_path}:{label}:{gi}:{hi}'
+                trusted = codex_trusted_hash(event, entry, hook)
+                pattern = re.compile(r'(\[hooks\.state\."' + re.escape(key) + r'"\]\ntrusted_hash = ")[^"]*(")')
+                if pattern.search(text):
+                    text = pattern.sub(r'\1' + trusted + r'\2', text)
+                else:
+                    additions.append(f'\n[hooks.state."{escape_toml_basic(key)}"]\ntrusted_hash = "{trusted}"\n')
+    if additions:
+        if not text.endswith('\n'):
+            text += '\n'
+        text += ''.join(additions)
+    config_path.write_text(text)
+
+
 def install_hooks(manifest):
     installed=[]
-    hook_cmd = f'"{NODE}" "{HUB}/bin/agent-sync" hook --platform "{{platform}}"'
+    hook_cmd = f'"{HUB}/bin/agent-sync" hook --platform "{{platform}}"'
     for h in manifest.get('hook_install', []):
         platform=h['platform']; settings=Path(h['settings']); event=h['event']
         settings.parent.mkdir(parents=True, exist_ok=True)
@@ -245,11 +325,12 @@ def install_hooks(manifest):
         cmd=hook_cmd.format(platform=platform)
         exists=any(cmd == hh.get('command') for group in arr for hh in group.get('hooks', []) if isinstance(hh, dict))
         if not exists:
-            arr.insert(0, {'hooks':[{'type':'command','command':cmd,'timeout':30}]})
+            arr.append({'hooks':[{'type':'command','command':cmd,'timeout':30}]})
             settings.write_text(json.dumps(data, indent=2, ensure_ascii=False)+'\n')
             installed.append(platform)
         if h.get('schema') == 'codex-hooks-json':
             validate_codex_hooks(settings)
+            update_codex_config_trust(settings)
     return installed
 
 

@@ -23,47 +23,205 @@
     "**/*.lock"
   ],
   "managed_files": [
-    {"name":"shared-fable5-core", "source":"shared/personas/claude-fable5/core.md", "target":"/home/neo/.agent-personas/claude-fable5/core.md", "type":"file"},
-    {"name":"shared-fable5-hook", "source":"shared/hooks/fable5-default-context.js", "target":"/home/neo/.agent-personas/claude-fable5/hooks/default-context.js", "type":"file", "mode":"755"},
-
-    {"name":"codex-hooks", "source":"agents/codex/hooks.json", "target":"/home/neo/.codex/hooks.json", "type":"json", "schema":"codex-hooks"},
-    {"name":"codex-fable5-wrapper", "source":"agents/codex/hooks/claude-fable5-user-prompt-wrapper.js", "target":"/home/neo/.codex/hooks/claude-fable5-user-prompt-wrapper.js", "type":"file", "mode":"755"},
-    {"name":"codex-fable5-skill", "source":"agents/codex/skills/claude-fable5", "target":"/home/neo/.codex/skills/claude-fable5", "type":"dir"},
-
-    {"name":"gemini-settings", "source":"agents/gemini/settings.json", "target":"/home/neo/.gemini/settings.json", "type":"json"},
-    {"name":"gemini-memory", "source":"agents/gemini/GEMINI.md", "target":"/home/neo/.gemini/GEMINI.md", "type":"file"},
-
-    {"name":"opencode-config", "source":"agents/opencode/opencode.json", "target":"/home/neo/.config/opencode/opencode.json", "type":"json"},
-    {"name":"opencode-fable5", "source":"agents/opencode/FABLE5.md", "target":"/home/neo/.config/opencode/FABLE5.md", "type":"file"},
-
-    {"name":"trae-settings", "source":"agents/trae/settings.json", "target":"/home/neo/.trae/settings.json", "type":"json"},
-    {"name":"trae-fable5-rules", "source":"agents/trae/rules/fable5.md", "target":"/home/neo/.trae/rules/fable5.md", "type":"file"},
-
-    {"name":"hermes-settings", "source":"agents/hermes/settings.json", "target":"/home/neo/.hermes/settings.json", "type":"json"},
-    {"name":"hermes-soul", "source":"agents/hermes/SOUL.md", "target":"/home/neo/.hermes/SOUL.md", "type":"file"},
-
-    {"name":"claude-settings", "source":"agents/claude/settings.json", "target":"/home/neo/.claude/settings.json", "type":"json"},
-    {"name":"claude-md", "source":"agents/claude/CLAUDE.md", "target":"/home/neo/.claude/CLAUDE.md", "type":"file"},
-
-    {"name":"qwen-settings", "source":"agents/qwen/settings.json", "target":"/home/neo/.qwen/settings.json", "type":"json"},
-    {"name":"qwen-md", "source":"agents/qwen/QWEN.md", "target":"/home/neo/.qwen/QWEN.md", "type":"file"},
-
-    {"name":"augment-settings", "source":"agents/augment/settings.json", "target":"/home/neo/.augment/settings.json", "type":"json"},
-    {"name":"augment-md", "source":"agents/augment/AUGMENT.md", "target":"/home/neo/.augment/AUGMENT.md", "type":"file"},
-
-    {"name":"codebuddy-settings", "source":"agents/codebuddy/settings.json", "target":"/home/neo/.codebuddy/settings.json", "type":"json"},
-    {"name":"codebuddy-md", "source":"agents/codebuddy/CODEBUDDY.md", "target":"/home/neo/.codebuddy/CODEBUDDY.md", "type":"file"},
-
-    {"name":"kilo-md", "source":"agents/kilo/KILO.md", "target":"/home/neo/.config/kilo/KILO.md", "type":"file"}
+    {
+      "name": "shared-fable5-core",
+      "source": "shared/personas/claude-fable5/core.md",
+      "target": "/home/neo/.agent-personas/claude-fable5/core.md",
+      "type": "file"
+    },
+    {
+      "name": "shared-fable5-hook",
+      "source": "shared/hooks/fable5-default-context.js",
+      "target": "/home/neo/.agent-personas/claude-fable5/hooks/default-context.js",
+      "type": "file",
+      "mode": "755"
+    },
+    {
+      "name": "codex-hooks",
+      "source": "agents/codex/hooks.json",
+      "target": "/home/neo/.codex/hooks.json",
+      "type": "json",
+      "schema": "codex-hooks"
+    },
+    {
+      "name": "codex-fable5-wrapper",
+      "source": "agents/codex/hooks/claude-fable5-user-prompt-wrapper.js",
+      "target": "/home/neo/.codex/hooks/claude-fable5-user-prompt-wrapper.js",
+      "type": "file",
+      "mode": "755"
+    },
+    {
+      "name": "codex-fable5-skill",
+      "source": "agents/codex/skills/claude-fable5",
+      "target": "/home/neo/.codex/skills/claude-fable5",
+      "type": "dir"
+    },
+    {
+      "name": "gemini-settings",
+      "source": "agents/gemini/settings.json",
+      "target": "/home/neo/.gemini/settings.json",
+      "type": "json"
+    },
+    {
+      "name": "gemini-memory",
+      "source": "agents/gemini/GEMINI.md",
+      "target": "/home/neo/.gemini/GEMINI.md",
+      "type": "file"
+    },
+    {
+      "name": "opencode-fable5",
+      "source": "agents/opencode/FABLE5.md",
+      "target": "/home/neo/.config/opencode/FABLE5.md",
+      "type": "file"
+    },
+    {
+      "name": "trae-settings",
+      "source": "agents/trae/settings.json",
+      "target": "/home/neo/.trae/settings.json",
+      "type": "json"
+    },
+    {
+      "name": "trae-fable5-rules",
+      "source": "agents/trae/rules/fable5.md",
+      "target": "/home/neo/.trae/rules/fable5.md",
+      "type": "file"
+    },
+    {
+      "name": "hermes-settings",
+      "source": "agents/hermes/settings.json",
+      "target": "/home/neo/.hermes/settings.json",
+      "type": "json"
+    },
+    {
+      "name": "hermes-soul",
+      "source": "agents/hermes/SOUL.md",
+      "target": "/home/neo/.hermes/SOUL.md",
+      "type": "file"
+    },
+    {
+      "name": "claude-md",
+      "source": "agents/claude/CLAUDE.md",
+      "target": "/home/neo/.claude/CLAUDE.md",
+      "type": "file"
+    },
+    {
+      "name": "qwen-settings",
+      "source": "agents/qwen/settings.json",
+      "target": "/home/neo/.qwen/settings.json",
+      "type": "json"
+    },
+    {
+      "name": "qwen-md",
+      "source": "agents/qwen/QWEN.md",
+      "target": "/home/neo/.qwen/QWEN.md",
+      "type": "file"
+    },
+    {
+      "name": "augment-settings",
+      "source": "agents/augment/settings.json",
+      "target": "/home/neo/.augment/settings.json",
+      "type": "json"
+    },
+    {
+      "name": "augment-md",
+      "source": "agents/augment/AUGMENT.md",
+      "target": "/home/neo/.augment/AUGMENT.md",
+      "type": "file"
+    },
+    {
+      "name": "codebuddy-settings",
+      "source": "agents/codebuddy/settings.json",
+      "target": "/home/neo/.codebuddy/settings.json",
+      "type": "json"
+    },
+    {
+      "name": "codebuddy-md",
+      "source": "agents/codebuddy/CODEBUDDY.md",
+      "target": "/home/neo/.codebuddy/CODEBUDDY.md",
+      "type": "file"
+    },
+    {
+      "name": "kilo-md",
+      "source": "agents/kilo/KILO.md",
+      "target": "/home/neo/.config/kilo/KILO.md",
+      "type": "file"
+    }
   ],
   "hook_install": [
-    {"platform":"codex", "settings":"/home/neo/.codex/hooks.json", "event":"SessionStart", "schema":"codex-hooks-json"},
-    {"platform":"gemini", "settings":"/home/neo/.gemini/settings.json", "event":"SessionStart", "schema":"settings-json"},
-    {"platform":"trae", "settings":"/home/neo/.trae/settings.json", "event":"SessionStart", "schema":"settings-json"},
-    {"platform":"hermes", "settings":"/home/neo/.hermes/settings.json", "event":"SessionStart", "schema":"settings-json"},
-    {"platform":"claude", "settings":"/home/neo/.claude/settings.json", "event":"SessionStart", "schema":"settings-json"},
-    {"platform":"qwen", "settings":"/home/neo/.qwen/settings.json", "event":"SessionStart", "schema":"settings-json"},
-    {"platform":"augment", "settings":"/home/neo/.augment/settings.json", "event":"SessionStart", "schema":"settings-json"},
-    {"platform":"codebuddy", "settings":"/home/neo/.codebuddy/settings.json", "event":"SessionStart", "schema":"settings-json"}
+    {
+      "platform": "codex",
+      "settings": "/home/neo/.codex/hooks.json",
+      "event": "SessionStart",
+      "schema": "codex-hooks-json"
+    },
+    {
+      "platform": "gemini",
+      "settings": "/home/neo/.gemini/settings.json",
+      "event": "SessionStart",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "trae",
+      "settings": "/home/neo/.trae/settings.json",
+      "event": "SessionStart",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "hermes",
+      "settings": "/home/neo/.hermes/settings.json",
+      "event": "SessionStart",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "claude",
+      "settings": "/home/neo/.claude/settings.json",
+      "event": "SessionStart",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "qwen",
+      "settings": "/home/neo/.qwen/settings.json",
+      "event": "SessionStart",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "augment",
+      "settings": "/home/neo/.augment/settings.json",
+      "event": "SessionStart",
+      "schema": "settings-json"
+    },
+    {
+      "platform": "codebuddy",
+      "settings": "/home/neo/.codebuddy/settings.json",
+      "event": "SessionStart",
+      "schema": "settings-json"
+    }
+  ],
+  "local_only_files": [
+    {
+      "name": "claude-settings",
+      "target": "/home/neo/.claude/settings.json",
+      "reason": "contains env tokens/API keys; install-hooks patches locally only"
+    },
+    {
+      "name": "opencode-config",
+      "target": "/home/neo/.config/opencode/opencode.json",
+      "reason": "contains provider apiKey/baseURL; keep local only"
+    },
+    {
+      "name": "codex-config",
+      "target": "/home/neo/.codex/config.toml",
+      "reason": "may contain provider/base URL/auth model settings and hook trust; patch locally only"
+    },
+    {
+      "name": "gemini-credentials",
+      "target": "/home/neo/.gemini/*credentials*.json",
+      "reason": "credentials are never synced"
+    },
+    {
+      "name": "hermes-auth",
+      "target": "/home/neo/.hermes/auth.json",
+      "reason": "auth is never synced"
+    }
   ]
 }

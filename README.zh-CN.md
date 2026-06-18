@@ -126,7 +126,7 @@ flowchart TD
   E --> G[把 loom 仓库配置应用回本地 harness 目录]
   F --> G
 
-  G --> H[安装或修复 hooks 和 shims]
+  G --> H[安装或修复 hooks 并清理旧 shims]
   H --> I[hook wiring 变化时提交]
   I --> J{是否配置 Git origin}
 
@@ -161,7 +161,7 @@ flowchart TD
   Pull -->|否| LocalOnly[跳过远程 pull/push]
   Rebase --> Apply[应用仓库配置到 harness 目录]
   LocalOnly --> Apply
-  Apply --> Repair[修复 hooks/shims]
+  Apply --> Repair[修复 hooks 并清理旧 shims]
   Repair --> Commit2[提交 wiring 变化]
   Commit2 --> Push{是否有 Git origin}
   Push -->|是| RemotePush[推送到私有远程]
@@ -179,7 +179,7 @@ flowchart TD
 2. 如有变化则提交本地快照
 3. 如果配置了 Git origin，则执行 pull rebase autostash
 4. 把仓库中的配置应用回本地 harness 目录
-5. 安装或修复 hooks 和 shims
+5. 安装或修复 hooks，并清理旧 command shims
 6. 如 hook wiring 有变化则提交
 7. 如果配置了 Git origin，则 push 到远程
 8. 运行 `loom doctor`
@@ -297,6 +297,8 @@ hook returned invalid stop hook JSON output
 ```bash
 loom sync
 ```
+
+迁移说明：旧版本曾经会在 `shims/` 下创建与真实 CLI 同名的 wrapper，并把该目录加入 shell `PATH`。当前版本的 `loom sync`、`loom apply`、`loom install` 和 `loom install-shims` 会自动删除这些旧 wrapper，并从 `~/.bashrc` / `~/.zshrc` 删除旧的 `loom shims` PATH block。其他机器如果今天已经自动同步过，可以手动运行一次 `loom sync`，或者等第二天首次自动同步时自动清理。
 
 ### 5.3 周期 timer
 

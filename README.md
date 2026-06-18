@@ -126,7 +126,7 @@ flowchart TD
   E --> G[Apply loom repo config to local harness dirs]
   F --> G
 
-  G --> H[Install or repair hooks and shims]
+  G --> H[Install or repair hooks and clean legacy shims]
   H --> I[Commit hook wiring when changed]
   I --> J{Git origin configured}
 
@@ -161,7 +161,7 @@ flowchart TD
   Pull -->|no| LocalOnly[Skip remote pull/push]
   Rebase --> Apply[Apply repo config to harness dirs]
   LocalOnly --> Apply
-  Apply --> Repair[Repair hooks/shims]
+  Apply --> Repair[Repair hooks and clean legacy shims]
   Repair --> Commit2[Commit wiring changes]
   Commit2 --> Push{Git origin?}
   Push -->|yes| RemotePush[Push to private remote]
@@ -179,7 +179,7 @@ flowchart TD
 2. commit local changes if any
 3. pull remote changes with rebase / autostash when a Git origin exists
 4. apply repository config back to local harness directories
-5. install or repair hooks and shims
+5. install or repair hooks and clean up legacy command shims
 6. commit hook wiring changes if any
 7. push to remote when a Git origin exists
 8. run `loom doctor`
@@ -281,6 +281,8 @@ Automatic sync now relies on native harness hooks where available plus the perio
 ```bash
 loom sync
 ```
+
+Migration note: older versions created same-name wrapper files under `shims/` and added that directory to shell `PATH`. Current `loom sync`, `loom apply`, `loom install`, and `loom install-shims` automatically remove those legacy wrapper files and remove the old `loom shims` PATH block from `~/.bashrc` and `~/.zshrc`. On another machine that already synced earlier today, run `loom sync` once manually or wait for the next day's automatic sync so the cleanup can be applied.
 
 ### 5.3 Periodic timer
 

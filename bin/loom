@@ -493,10 +493,45 @@ def install_path_exports(*dirs):
             rc.write_text(old.rstrip() + '\n\n' + block)
 
 
+def remove_block(text, start, end):
+    changed = False
+    while start in text and end in text:
+        pre = text.split(start, 1)[0].rstrip()
+        rest = text.split(start, 1)[1]
+        post = rest.split(end, 1)[1].lstrip('\n')
+        text = pre + ('\n' if pre and post else '') + post
+        changed = True
+    return text, changed
+
+
+def cleanup_legacy_shims():
+    removed=[]
+    shimdir = HUB / 'shims'
+    for name in ['codex', 'gemini', 'opencode', 'claude', 'hermes']:
+        p = shimdir / name
+        if p.exists() or p.is_symlink():
+            p.unlink()
+            removed.append(str(p))
+    for rc_name in ['.bashrc', '.zshrc']:
+        rc = Path.home() / rc_name
+        if not rc.exists():
+            continue
+        old = rc.read_text()
+        new_text, changed = remove_block(old, '# >>> loom shims >>>', '# <<< loom shims <<<')
+        if changed:
+            rc.write_text(new_text)
+            removed.append(str(rc) + ':loom-shims-path-block')
+    if removed:
+        log('removed legacy command shims: ' + ', '.join(removed))
+    else:
+        log('legacy command shims already absent')
+    return removed
+
+
 def install_shims():
     # Deprecated by default: do not shadow real harness CLIs by putting same-name wrappers
-    # earlier in PATH. Loom now relies on native harness hooks, the periodic timer, and
-    # explicit `loom sync` for manual synchronization.
+    # earlier in PATH. This command now cleans up older shim installs instead.
+    cleanup_legacy_shims()
     log('command shims are disabled by default; real harness CLIs are left untouched')
     return []
 
@@ -674,6 +709,7 @@ def cmd_sync(args):
     pull_rebase()
     applied=apply_repo(manifest); log(f'applied {len(applied)} managed entries')
     install_hooks(manifest)
+    install_shims()
     git_commit(f'loom: apply hook wiring {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
     push()
     rc = doctor(manifest)
@@ -709,7 +745,7 @@ def main():
         if args.cmd == 'export':
             changed=export_local(manifest); log(f'exported {len(changed)} managed entries'); git_commit(f'loom: export local config {dt.datetime.now().isoformat()}'); return 0
         if args.cmd == 'apply':
-            pull_rebase(); applied=apply_repo(manifest); log(f'applied {len(applied)} managed entries'); install_hooks(manifest); return doctor(manifest)
+            pull_rebase(); applied=apply_repo(manifest); log(f'applied {len(applied)} managed entries'); install_hooks(manifest); install_shims(); return doctor(manifest)
         if args.cmd == 'sync': return cmd_sync(args)
         if args.cmd == 'doctor': return doctor(manifest)
         if args.cmd == 'install-hooks':

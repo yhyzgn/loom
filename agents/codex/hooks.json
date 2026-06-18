@@ -2,19 +2,19 @@
   "hooks": {
     "SessionStart": [
       {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.codex/hooks/gsd-check-update.js\""
-          }
-        ]
-      },
-      {
         "matcher": "startup|resume|clear",
         "hooks": [
           {
             "type": "command",
             "command": "\"/home/neo/n/bin/node\" \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\""
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.codex/hooks/gsd-check-update.js\""
           }
         ]
       },
@@ -53,14 +53,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.codex/hooks/claude-fable5-user-prompt-wrapper.js\""
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "\"/home/neo/n/bin/node\" \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\""
           }
         ]
@@ -72,15 +64,6 @@
           {
             "type": "command",
             "command": "\"/home/neo/n/bin/node\" \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\"",
-            "timeout": 30
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/bin/bash -lc 'mkdir -p /home/neo/Projects/neo/pub/loom/logs; /home/neo/Projects/neo/pub/loom/bin/loom hook --platform codex --phase exit >>/home/neo/Projects/neo/pub/loom/logs/codex-stop-hook.log 2>&1; printf '\"'\"'%s\\n'\"'\"' '\"'\"'{}'\"'\"''",
             "timeout": 30
           }
         ]
@@ -106,5 +89,28 @@
         ]
       }
     ]
+  },
+  "state": {
+    "/home/neo/.codex/hooks.json:session_start:0:0": {
+      "trusted_hash": "sha256:12714b99766d8f8903f6133d65151456da9117fd60cf9bbb692e655a5ff57f55"
+    },
+    "/home/neo/.codex/hooks.json:pre_tool_use:0:0": {
+      "trusted_hash": "sha256:5d3614408a1f82905023972ec8a20eead7557f96c1d0e1c3b6dbb3c1c7b427b4"
+    },
+    "/home/neo/.codex/hooks.json:post_tool_use:0:0": {
+      "trusted_hash": "sha256:3ca39471a9e3e7b667b4805f685bce249327b6f46f0f0c70b34b6f7880cfbc43"
+    },
+    "/home/neo/.codex/hooks.json:user_prompt_submit:0:0": {
+      "trusted_hash": "sha256:87354fd5a68e4a8f15638a72118c8c05c2b98a1b43035f5afeb78cd2d460f25a"
+    },
+    "/home/neo/.codex/hooks.json:pre_compact:0:0": {
+      "trusted_hash": "sha256:94aad9853dcd4d0d7c7bc737092bc3150a17e32307e0bad365d5d801c4b992f0"
+    },
+    "/home/neo/.codex/hooks.json:post_compact:0:0": {
+      "trusted_hash": "sha256:7b8ef8c7c1b8644f9f8ef05d939bae61a9eae026c93f02073406238c65e89d25"
+    },
+    "/home/neo/.codex/hooks.json:stop:0:0": {
+      "trusted_hash": "sha256:086b78fa7d28ba86c90e8b4833ff0a704a0b4187bdd503d03157c4abda6da514"
+    }
   }
 }

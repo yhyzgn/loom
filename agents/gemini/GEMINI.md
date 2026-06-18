@@ -27,11 +27,3 @@ All other commands are automatically rewritten by the Claude Code hook.
 Example: `git status` → `rtk git status` (transparent, 0 tokens overhead)
 
 Refer to CLAUDE.md for full command reference.
-
-<!-- FABLE5:GEMINI:START -->
-# Default Fable5 persona adapter
-
-Load and apply `/home/neo/.agent-personas/claude-fable5/core.md` as a default response style/safety layer.
-
-Do not copy the original Claude prompt literally. Preserve this host agent's identity, tools, policies, and local project instructions. Read `/home/neo/.agent-personas/claude-fable5/references/CLAUDE-FABLE-5.original.md` only when the user explicitly asks for source-level comparison, audit, quotation, or migration details.
-<!-- FABLE5:GEMINI:END -->

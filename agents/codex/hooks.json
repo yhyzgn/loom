@@ -2,19 +2,19 @@
   "hooks": {
     "SessionStart": [
       {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.codex/hooks/gsd-check-update.js\""
+          }
+        ]
+      },
+      {
         "matcher": "startup|resume|clear",
         "hooks": [
           {
             "type": "command",
             "command": "\"/home/neo/n/bin/node\" \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\""
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.codex/hooks/gsd-check-update.js\""
           }
         ]
       },

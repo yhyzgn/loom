@@ -223,7 +223,7 @@ loom doctor
 
 1. installs the `loom` CLI into the user executable path, default `~/.local/bin/loom`
 2. installs harness startup / exit hooks where configured
-3. installs command shims for detected CLIs
+3. leaves real harness CLIs untouched; same-name command shims are disabled by default
 4. installs a periodic timer
 5. runs `loom doctor`
 
@@ -274,19 +274,13 @@ Exact support depends on the harness.
 
 ### 5.2 Command shims
 
-For common CLI commands, `loom` installs lightweight shims under:
+Same-name command shims are **disabled by default**. `loom` does not move or replace harness CLIs such as `codex`, `gemini`, `claude`, or `opencode`, and it should not put wrapper commands ahead of the real CLIs in `PATH`.
 
-```text
-~/Projects/neo/pub/loom/shims
+Automatic sync now relies on native harness hooks where available plus the periodic timer. If you need sync in the middle of a day, run:
+
+```bash
+loom sync
 ```
-
-The shim pattern is:
-
-1. run `loom hook --phase start`
-2. launch the real CLI
-3. run `loom hook --phase exit` after the CLI exits
-
-This gives startup and normal-exit synchronization even when a harness does not provide reliable native hooks.
 
 ### 5.3 Periodic timer
 
@@ -312,7 +306,7 @@ loom export           # export safe local files into the repo
 loom apply            # pull/apply repo files back to local harness dirs
 loom install-cli      # install ~/.local/bin/loom
 loom install-hooks    # install/repair harness hooks
-loom install-shims    # install/repair command shims
+loom install-shims    # currently a no-op; same-name shims are disabled by default
 loom install-timer    # install/repair periodic timer
 loom timer-status     # show timer status
 ```
@@ -333,7 +327,7 @@ bin/loom                  # main CLI source
 config/manifest.json      # managed file manifest and exclusions
 agents/                   # per-harness synced configuration
 shared/                   # shared personas/hooks/assets
-shims/                    # generated command shim scripts
+shims/                    # optional shim workspace; not added to PATH by default
 templates/                # templates such as Git hooks
 logs/                     # local logs, ignored by Git
 state/                    # local state, ignored by Git

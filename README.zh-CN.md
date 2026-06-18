@@ -223,7 +223,7 @@ loom doctor
 
 1. 安装 `loom` CLI 到用户可执行路径，默认 `~/.local/bin/loom`
 2. 安装 harness 启动/退出 hooks
-3. 为检测到的 CLI 安装 command shims
+3. 不接管真实 harness CLI；默认禁用同名 command shims
 4. 安装周期性 timer
 5. 运行 `loom doctor`
 
@@ -290,19 +290,13 @@ hook returned invalid stop hook JSON output
 
 ### 5.2 Command shims
 
-对于常见 CLI，`loom` 会在下面目录安装轻量 shims：
+同名 command shims 现在**默认禁用**。`loom` 不会移动或替换 `codex`、`gemini`、`claude`、`opencode` 等真实 harness CLI，也不应该把 wrapper 放到 `PATH` 前面去覆盖原始命令。
 
-```text
-~/Projects/neo/pub/loom/shims
+自动同步现在主要依赖 harness 原生 hooks 和周期 timer。如果当天中途需要立即同步，手动执行：
+
+```bash
+loom sync
 ```
-
-shim 模式是：
-
-1. 运行 `loom hook --phase start`
-2. 启动真实 CLI
-3. CLI 退出后运行 `loom hook --phase exit`
-
-这样即使某个 harness 没有可靠的原生 hook，也能获得启动和正常退出同步能力。
 
 ### 5.3 周期 timer
 
@@ -328,7 +322,7 @@ loom export           # 导出安全本地文件到仓库
 loom apply            # 从仓库应用配置到本地 harness 目录
 loom install-cli      # 安装 ~/.local/bin/loom
 loom install-hooks    # 安装/修复 harness hooks
-loom install-shims    # 安装/修复 command shims
+loom install-shims    # 当前为 no-op；默认禁用同名 shims
 loom install-timer    # 安装/修复周期 timer
 loom timer-status     # 查看 timer 状态
 ```
@@ -349,7 +343,7 @@ bin/loom                  # 主 CLI 源码
 config/manifest.json      # 受管文件 manifest 和排除规则
 agents/                   # 各 harness 的同步配置
 shared/                   # 共享 personas/hooks/assets
-shims/                    # 生成的 command shim 脚本
+shims/                    # 可选 shim 工作区；默认不加入 PATH
 templates/                # Git hooks 等模板
 logs/                     # 本地日志，Git 忽略
 state/                    # 本地状态，Git 忽略

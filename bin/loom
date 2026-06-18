@@ -494,56 +494,11 @@ def install_path_exports(*dirs):
 
 
 def install_shims():
-    commands = ['codex', 'gemini', 'opencode', 'claude', 'hermes']
-    shimdir = HUB / 'shims'
-    shimdir.mkdir(parents=True, exist_ok=True)
-    current_path = os.environ.get('PATH', '')
-    search_path = ':'.join([x for x in current_path.split(':') if x and Path(x).resolve() != shimdir.resolve()])
-    installed = []
-    for c in commands:
-        real = shutil.which(c, path=search_path)
-        if not real:
-            continue
-        script = (
-            '#!/usr/bin/env bash\n'
-            'set -uo pipefail\n'
-            f'LOOM_HUB="{HUB}"\n'
-            f'LOOM_PLATFORM="{c}"\n'
-            f'LOOM_REAL="{real}"\n'
-            f'LOOM_LOG="/tmp/loom-{c}.log"\n'
-            'loom_run() {\n'
-            '  local phase="$1"\n'
-            '  if [ "${LOOM_SHIM_BYPASS:-0}" != "1" ]; then\n'
-            '    LOOM_SHIM_BYPASS=1 "$LOOM_HUB/bin/loom" hook --platform "$LOOM_PLATFORM" --phase "$phase" >>"$LOOM_LOG" 2>&1 || true\n'
-            '  fi\n'
-            '}\n'
-            'loom_on_exit() {\n'
-            '  local status=$?\n'
-            '  loom_run exit\n'
-            '  exit "$status"\n'
-            '}\n'
-            'loom_run start\n'
-            'trap loom_on_exit EXIT\n'
-            '"$LOOM_REAL" "$@"\n'
-            'status=$?\n'
-            'exit "$status"\n'
-        )
-        out = shimdir / c
-        out.write_text(script)
-        out.chmod(0o755)
-        installed.append(c)
-    block = '# >>> loom shims >>>\nexport PATH="$HOME/Projects/neo/pub/loom/shims:$PATH"\n# <<< loom shims <<<\n'
-    for rc_name in ['.bashrc', '.zshrc']:
-        rc = Path.home() / rc_name
-        old = rc.read_text() if rc.exists() else ''
-        if '# >>> loom shims >>>' in old and '# <<< loom shims <<<' in old:
-            pre = old.split('# >>> loom shims >>>')[0].rstrip()
-            post = old.split('# <<< loom shims <<<', 1)[1]
-            rc.write_text(pre + '\n' + block + post)
-        else:
-            rc.write_text(old.rstrip() + '\n\n' + block)
-    log('installed command shims with start/exit sync: ' + ', '.join(installed))
-    return installed
+    # Deprecated by default: do not shadow real harness CLIs by putting same-name wrappers
+    # earlier in PATH. Loom now relies on native harness hooks, the periodic timer, and
+    # explicit `loom sync` for manual synchronization.
+    log('command shims are disabled by default; real harness CLIs are left untouched')
+    return []
 
 
 def systemd_user_dir():

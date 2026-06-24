@@ -39,6 +39,18 @@
       "mode": "755"
     },
     {
+      "name": "global-agent-memory",
+      "source": "shared/memory/global.md",
+      "target": "/home/neo/.agent-memory/global.md",
+      "type": "file"
+    },
+    {
+      "name": "home-agents-md",
+      "source": "agents/home/AGENTS.md",
+      "target": "/home/neo/AGENTS.md",
+      "type": "file"
+    },
+    {
       "name": "codex-hooks",
       "source": "agents/codex/hooks.json",
       "target": "/home/neo/.codex/hooks.json",
@@ -59,6 +71,12 @@
       "type": "dir"
     },
     {
+      "name": "codex-agents-md",
+      "source": "agents/codex/AGENTS.md",
+      "target": "/home/neo/.codex/AGENTS.md",
+      "type": "file"
+    },
+    {
       "name": "gemini-settings",
       "source": "agents/gemini/settings.json",
       "target": "/home/neo/.gemini/settings.json",
@@ -74,6 +92,12 @@
       "name": "opencode-fable5",
       "source": "agents/opencode/FABLE5.md",
       "target": "/home/neo/.config/opencode/FABLE5.md",
+      "type": "file"
+    },
+    {
+      "name": "opencode-legacy-fable5",
+      "source": "agents/opencode-legacy/FABLE5.md",
+      "target": "/home/neo/.opencode/FABLE5.md",
       "type": "file"
     },
     {
@@ -104,6 +128,12 @@
       "name": "claude-md",
       "source": "agents/claude/CLAUDE.md",
       "target": "/home/neo/.claude/CLAUDE.md",
+      "type": "file"
+    },
+    {
+      "name": "claude-agents-md",
+      "source": "agents/claude/AGENTS.md",
+      "target": "/home/neo/.claude/AGENTS.md",
       "type": "file"
     },
     {

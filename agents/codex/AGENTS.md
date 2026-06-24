@@ -250,6 +250,13 @@ Required approach:
 - If raw SQL already exists, prefer migrating it toward ORM-level APIs during related maintenance.
 <!-- GLOBAL-MEMORY:JAVA-SPRING-ORM-SQL-REDLINES:END -->
 
+
+<!-- GLOBAL-MEMORY:MODULE-ENTRY-FILE-CONVENTION:START -->
+## Module entry / core file convention
+
+For any codebase, files that act as module cores or public entry points (for example `mod.rs`, `lib.rs`, `registry.rs`, `dispatcher.rs`, route aggregators, SDK facades, and similar orchestration surfaces) must remain thin and library-like: define public contracts, wire submodules, expose APIs, and coordinate high-level flow only. Do not let these files accumulate all registration, routing, parsing, persistence, validation, or protocol-binding logic. Split implementation by nature, module, and feature responsibility into focused child modules before the entry file becomes a dumping ground. Prefer meaningful responsibility boundaries over mechanical line-count appeasement; source-size checks are only a backstop, not the architecture standard.
+<!-- GLOBAL-MEMORY:MODULE-ENTRY-FILE-CONVENTION:END -->
+
 <!-- GLOBAL-MEMORY:LOOM-AUTOSYNC:START -->
 ## Loom auto-sync requirement
 

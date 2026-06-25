@@ -1,35 +1,11 @@
 {
-  "security": {
-    "auth": {
-      "selectedType": "oauth-personal"
-    }
-  },
-  "experimental": {
-    "skills": true,
-    "enableAgents": true
-  },
-  "ui": {
-    "theme": "ANSI",
-    "showThinking": "full"
-  },
   "hooks": {
-    "BeforeTool": [
-      {
-        "matcher": "run_shell_command",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "/home/neo/.gemini/hooks/rtk-hook-gemini.sh"
-          }
-        ]
-      }
-    ],
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/loom/bin/loom\" hook --platform \"gemini\" --phase start",
+            "command": "\"D:\\File\\Projects\\Neo\\pub\\loom/bin/loom\" hook --platform \"gemini\" --phase start",
             "timeout": 30
           }
         ]
@@ -40,12 +16,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/loom/bin/loom\" hook --platform \"gemini\" --phase exit",
+            "command": "\"D:\\File\\Projects\\Neo\\pub\\loom/bin/loom\" hook --platform \"gemini\" --phase exit",
             "timeout": 30
           }
         ]
       }
     ]
-  },
-  "mcpServers": {}
+  }
 }

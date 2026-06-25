@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/loom/bin/loom\" hook --platform \"codebuddy\" --phase start",
+            "command": "\"D:\\File\\Projects\\Neo\\pub\\loom/bin/loom\" hook --platform \"codebuddy\" --phase start",
             "timeout": 30
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/loom/bin/loom\" hook --platform \"codebuddy\" --phase exit",
+            "command": "\"D:\\File\\Projects\\Neo\\pub\\loom/bin/loom\" hook --platform \"codebuddy\" --phase exit",
             "timeout": 30
           }
         ]

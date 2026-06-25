@@ -5,55 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.codex/hooks/gsd-check-update.js\""
-          }
-        ]
-      },
-      {
-        "matcher": "startup|resume|clear",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\""
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/loom/bin/loom\" hook --platform \"codex\" --phase start",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
-    "PreToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\""
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\""
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.codex/hooks/claude-fable5-user-prompt-wrapper.js\" --omx-native-hook \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\"",
+            "command": "\"D:\\File\\Projects\\Neo\\pub\\loom/bin/loom\" hook --platform \"codex\" --phase start",
             "timeout": 30
           }
         ]
@@ -64,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\"",
+            "command": "/bin/bash -lc 'mkdir -p '\"'\"'D:\\File\\Projects\\Neo\\pub\\loom\\logs'\"'\"'; '\"'\"'D:\\File\\Projects\\Neo\\pub\\loom\\bin\\loom'\"'\"' hook --platform codex --phase exit >>'\"'\"'D:\\File\\Projects\\Neo\\pub\\loom\\logs\\codex-stop-hook.log'\"'\"' 2>&1; printf '\"'\"'%s\\n'\"'\"' '\"'\"'{}'\"'\"''",
             "timeout": 30
           }
         ]
@@ -73,28 +25,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "/bin/bash -lc 'mkdir -p /home/neo/Projects/neo/pub/loom/logs; /home/neo/Projects/neo/pub/loom/bin/loom hook --platform codex --phase exit >>/home/neo/Projects/neo/pub/loom/logs/codex-stop-hook.log 2>&1; printf '\"'\"'%s\\n'\"'\"' '\"'\"'{}'\"'\"''",
+            "command": "/bin/bash -lc 'mkdir -p '\"'\"'D:\\File\\Projects\\Neo\\pub\\loom\\logs'\"'\"'; '\"'\"'D:\\File\\Projects\\Neo\\pub\\loom\\bin\\loom'\"'\"' hook --platform codex --phase exit >>'\"'\"'D:\\File\\Projects\\Neo\\pub\\loom\\logs\\codex-stop-hook.log'\"'\"' 2>&1; printf '\"'\"'%s\\n'\"'\"' '\"'\"'{}'\"'\"''",
             "timeout": 30
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\""
-          }
-        ]
-      }
-    ],
-    "PostCompact": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\""
           }
         ]
       }

@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/loom/bin/loom\" hook --platform \"trae\" --phase start",
+            "command": "\"D:\\File\\Projects\\Neo\\pub\\loom/bin/loom\" hook --platform \"trae\" --phase start",
             "timeout": 30
           }
         ]
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/Projects/neo/pub/loom/bin/loom\" hook --platform \"trae\" --phase exit",
+            "command": "\"D:\\File\\Projects\\Neo\\pub\\loom/bin/loom\" hook --platform \"trae\" --phase exit",
             "timeout": 30
           }
         ]

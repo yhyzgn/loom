@@ -29,6 +29,15 @@
             "timeout": 30
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/bin/bash -lc 'mkdir -p '\"'\"'D:\\File\\Projects\\Neo\\pub\\loom\\logs'\"'\"'; '\"'\"'D:\\File\\Projects\\Neo\\pub\\loom\\bin\\loom'\"'\"' hook --platform codex --phase exit >>'\"'\"'D:\\File\\Projects\\Neo\\pub\\loom\\logs\\codex-stop-hook.log'\"'\"' 2>&1; printf '\"'\"'%s\\n'\"'\"' '\"'\"'{}'\"'\"''",
+            "timeout": 30
+          }
+        ]
       }
     ]
   }

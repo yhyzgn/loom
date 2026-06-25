@@ -257,6 +257,12 @@ Required approach:
 For any codebase, files that act as module cores or public entry points (for example `mod.rs`, `lib.rs`, `registry.rs`, `dispatcher.rs`, route aggregators, SDK facades, and similar orchestration surfaces) must remain thin and library-like: define public contracts, wire submodules, expose APIs, and coordinate high-level flow only. Do not let these files accumulate all registration, routing, parsing, persistence, validation, or protocol-binding logic. Split implementation by nature, module, and feature responsibility into focused child modules before the entry file becomes a dumping ground. Prefer meaningful responsibility boundaries over mechanical line-count appeasement; source-size checks are only a backstop, not the architecture standard.
 <!-- GLOBAL-MEMORY:MODULE-ENTRY-FILE-CONVENTION:END -->
 
+<!-- GLOBAL-MEMORY:NO-WARNING-SUPPRESSION:START -->
+## No warning-suppression bypasses
+
+Across all projects, do not use or keep suppression attributes or lint-level downgrades to hide compiler, clippy, linter, typechecker, test, docs, or CI failures. This includes `#[allow(...)]`, `#![allow(...)]`, `#[expect(...)]`, broad allow lists, and equivalent tool-specific bypasses. Fix the root cause instead. Existing suppressions are technical debt that must be removed by fixing root causes; do not copy, expand, or leave them in touched code. If generated/third-party code appears to require an exception, record the blocker for explicit human review rather than adding the bypass silently.
+<!-- GLOBAL-MEMORY:NO-WARNING-SUPPRESSION:END -->
+
 <!-- GLOBAL-MEMORY:LOOM-AUTOSYNC:START -->
 ## Loom auto-sync requirement
 

@@ -207,11 +207,17 @@ cd loom
 
 ### 4.2 Install on the current machine
 
-Run:
+Preferred install uses the platform executable built by GitHub Actions. Download the artifact/release asset for your OS, put it in this checkout's `bin/` directory, and name it `loom` on Linux/macOS or `loom.exe` on Windows. Then run:
 
 ```bash
+# Linux/macOS
 ./bin/loom install
+
+# Windows PowerShell
+.\bin\loom.exe install
 ```
+
+For development on Linux/macOS you can still run the Python source at `bin/loom`; Windows should use `loom.exe` because the source file has no native Windows launcher semantics.
 
 After the first install, new shells should be able to run:
 
@@ -221,7 +227,7 @@ loom doctor
 
 `loom install` performs the local machine setup:
 
-1. installs the `loom` CLI into the user executable path, default `~/.local/bin/loom`
+1. installs the current platform executable into the user executable path, default `~/.local/bin/loom` on Unix or `%LOCALAPPDATA%\Programs\loom\bin\loom.exe` on Windows
 2. installs harness startup / exit hooks where configured
 3. leaves real harness CLIs untouched; same-name command shims are disabled by default
 4. installs a periodic timer
@@ -325,7 +331,10 @@ loom install-cli --cli-mode symlink
 ## 7. Repository layout
 
 ```text
-bin/loom                  # main CLI source
+bin/loom                  # main CLI source for development / Unix fallback
+bin/loom.exe              # optional generated Windows executable, ignored by Git
+.github/workflows/        # CI build for Linux/macOS/Windows executables
+scripts/build.py          # local PyInstaller build helper
 config/manifest.json      # managed file manifest and exclusions
 agents/                   # per-harness synced configuration
 shared/                   # shared personas/hooks/assets

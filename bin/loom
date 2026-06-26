@@ -2,7 +2,76 @@
 import argparse, datetime as dt, fnmatch, hashlib, json, os, platform as py_platform, shlex, shutil, stat, subprocess, sys, time
 from pathlib import Path
 
-HUB = Path(__file__).resolve().parents[1]
+def runtime_path():
+    if getattr(sys, 'frozen', False):
+        return Path(sys.executable).resolve()
+    return Path(__file__).resolve()
+
+
+def read_hub_sidecar(path):
+    sidecar = path.with_name('loom-hub.json')
+    if not sidecar.exists():
+        return None
+    try:
+        data = json.loads(sidecar.read_text())
+    except Exception:
+        return None
+    hub = Path(data.get('hub', '')).expanduser()
+    return hub if (hub / 'config' / 'manifest.json').exists() else None
+
+
+def find_hub_from(start):
+    start = Path(start).resolve()
+    roots = [start] if start.is_dir() else list(start.parents)
+    for candidate in roots:
+        if (candidate / 'config' / 'manifest.json').exists():
+            return candidate
+    return None
+
+
+def discover_hub():
+    env_hub = os.environ.get('LOOM_HUB')
+    if env_hub:
+        hub = Path(env_hub).expanduser().resolve()
+        if (hub / 'config' / 'manifest.json').exists():
+            return hub
+    exe = runtime_path()
+    sidecar_hub = read_hub_sidecar(exe)
+    if sidecar_hub:
+        return sidecar_hub.resolve()
+    return find_hub_from(exe) or find_hub_from(Path.cwd()) or exe.parents[1]
+
+
+def windows_platform(target_os=None):
+    system = (target_os or py_platform.system()).lower()
+    return system in ('windows', 'win32', 'cygwin', 'msys')
+
+
+def quote_command_path(path):
+    return f'"{path}"'
+
+
+def cli_executable_path(target_os=None):
+    if getattr(sys, 'frozen', False):
+        return runtime_path()
+    if windows_platform(target_os):
+        exe = HUB / 'bin' / 'loom.exe'
+        if exe.exists():
+            return exe
+        bat = HUB / 'bin' / 'loom.bat'
+        if bat.exists():
+            return bat
+    return HUB / 'bin' / 'loom'
+
+
+def command_for_cli(path=None, target_os=None):
+    path = Path(path) if path else cli_executable_path(target_os)
+    if windows_platform(target_os):
+        return quote_command_path(path)
+    return quote_command_path(path)
+
+
+HUB = discover_hub()
 MANIFEST = HUB / 'config' / 'manifest.json'
 LOCK = HUB / '.loom.lock'
 LOG_DIR = HUB / 'logs'
@@ -10,9 +79,13 @@ STATE_DIR = HUB / 'state'
 HOOK_MARKER = 'loom/bin/loom hook'
 LOOM_HOOK_COMMAND_PATTERNS = (
     'loom/bin/loom',
+    'loom/bin/loom.exe',
     'loom\\bin\\loom',
+    'loom\\bin\\loom.exe',
     '/bin/loom',
+    '/bin/loom.exe',
     '\\bin\\loom',
+    '\\bin\\loom.exe',
 )
 
 
@@ -426,7 +499,8 @@ def hook_phase_for_event(event):
 
 def install_hooks(manifest):
     installed=[]
-    hook_cmd = f'"{HUB}/bin/loom" hook --platform "{{platform}}"'
+    cli_path = cli_executable_path()
+    hook_cmd = command_for_cli(cli_path) + ' hook --platform "{platform}"'
     for h in manifest.get('hook_install', []):
         platform=h['platform']; settings=Path(h['settings']); event=h['event']
         settings.parent.mkdir(parents=True, exist_ok=True)
@@ -439,13 +513,23 @@ def install_hooks(manifest):
         cmd = hook_cmd.format(platform=platform) + f' --phase {phase}'
         if platform == 'codex' and phase == 'exit':
             log_file = LOG_DIR / 'codex-stop-hook.log'
-            inner = (
-                f'mkdir -p {shlex.quote(str(LOG_DIR))}; '
-                f'{shlex.quote(str(HUB / "bin" / "loom"))} hook --platform {shlex.quote(platform)} --phase {shlex.quote(phase)} '
-                f'>>{shlex.quote(str(log_file))} 2>&1; '
-                "printf '%s\\n' '{}'"
-            )
-            cmd = f'/bin/bash -lc {shlex.quote(inner)}'
+            if windows_platform():
+                ps = (
+                    "& { "
+                    f"New-Item -ItemType Directory -Force -LiteralPath '{LOG_DIR}' | Out-Null; "
+                    f"& '{cli_path}' hook --platform {platform} --phase {phase} *>> '{log_file}'; "
+                    "Write-Output '{}' "
+                    "}"
+                )
+                cmd = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -Command ' + quote_command_path(ps)
+            else:
+                inner = (
+                    f'mkdir -p {shlex.quote(str(LOG_DIR))}; '
+                    f'{shlex.quote(str(cli_path))} hook --platform {shlex.quote(platform)} --phase {shlex.quote(phase)} '
+                    f'>>{shlex.quote(str(log_file))} 2>&1; '
+                    "printf '%s\\n' '{}'"
+                )
+                cmd = f'/bin/bash -lc {shlex.quote(inner)}'
         def is_agent_sync_hook(hook):
             return isinstance(hook, dict) and is_loom_hook_command(hook.get('command', ''))
         cleaned=[]
@@ -525,15 +609,17 @@ def default_user_bin_dir(target_os=None):
 def install_cli(target=None, mode='symlink'):
     target_dir = Path(target).expanduser() if target else default_user_bin_dir()
     target_dir.mkdir(parents=True, exist_ok=True)
-    source = HUB / 'bin' / 'loom'
-    dest = target_dir / ('loom.exe' if py_platform.system().lower().startswith('win') else 'loom')
+    source = cli_executable_path()
+    dest_name = 'loom.exe' if windows_platform() else 'loom'
+    dest = target_dir / dest_name
     if dest.exists() or dest.is_symlink():
         dest.unlink()
-    if mode == 'copy' or py_platform.system().lower().startswith('win'):
+    if mode == 'copy' or windows_platform() or getattr(sys, 'frozen', False):
         shutil.copy2(source, dest)
     else:
         dest.symlink_to(source)
     dest.chmod(0o755)
+    (target_dir / 'loom-hub.json').write_text(json.dumps({'hub': str(HUB)}, indent=2) + '\n')
     install_path_exports(target_dir)
     log(f'installed loom CLI to {dest}')
     return dest
@@ -542,6 +628,9 @@ def install_cli(target=None, mode='symlink'):
 def install_path_exports(*dirs):
     dirs = [str(Path(d).expanduser()) for d in dirs if d]
     if not dirs:
+        return
+    if windows_platform():
+        log('Windows PATH is not edited automatically; add ' + dirs[0] + ' to PATH if you want to run loom from any shell')
         return
     export_path = ':'.join('$HOME' + d[len(str(Path.home())):] if d.startswith(str(Path.home())) else d for d in dirs)
     block = '# >>> loom path >>>\nexport PATH="' + export_path + ':$PATH"\n# <<< loom path <<<\n'
@@ -638,7 +727,7 @@ def install_linux_timer(interval_minutes):
         '[Service]\n'
         'Type=oneshot\n'
         f'WorkingDirectory={HUB}\n'
-        f'ExecStart={HUB}/bin/loom hook --platform timer --phase timer\n'
+        f'ExecStart={cli_executable_path(target_os="linux")} hook --platform timer --phase timer\n'
     )
     timer.write_text(
         '[Unit]\n'
@@ -676,7 +765,7 @@ def install_macos_timer(interval_minutes):
         f'  <string>com.loom.sync</string>',
         f'  <key>ProgramArguments</key>',
         f'  <array>',
-        f'    <string>{HUB}/bin/loom</string>',
+        f'    <string>{cli_executable_path(target_os="macos")}</string>',
         f'    <string>hook</string>',
         f'    <string>--platform</string>',
         f'    <string>timer</string>',
@@ -717,7 +806,7 @@ def install_windows_timer(interval_minutes):
     ps1.write_text(
         '$ErrorActionPreference = "SilentlyContinue"\n'
         f'Set-Location -LiteralPath "{HUB}"\n'
-        f'& "{HUB}/bin/loom" hook --platform timer --phase timer *>> "{HUB}/logs/windows-task.log"\n'
+        f'& "{cli_executable_path(target_os="windows")}" hook --platform timer --phase timer *>> "{HUB}/logs/windows-task.log"\n'
     )
     task_name = 'LoomSync'
     if shutil.which('schtasks'):

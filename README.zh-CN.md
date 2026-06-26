@@ -207,11 +207,17 @@ cd loom
 
 ### 4.2 在当前机器安装
 
-运行：
+推荐使用 GitHub Actions 构建出来的分平台可执行文件。下载与你 OS 匹配的 artifact/release asset，放到本 checkout 的 `bin/` 目录；Linux/macOS 命名为 `loom`，Windows 命名为 `loom.exe`。然后运行：
 
 ```bash
+# Linux/macOS
 ./bin/loom install
+
+# Windows PowerShell
+.\bin\loom.exe install
 ```
+
+开发时 Linux/macOS 仍可直接运行 Python 源文件 `bin/loom`；Windows 应使用 `loom.exe`，因为无扩展名 Python 文件在 Windows 上不能作为原生可执行程序可靠运行。
 
 安装后，新 shell 应该可以直接执行：
 
@@ -221,7 +227,7 @@ loom doctor
 
 `loom install` 会：
 
-1. 安装 `loom` CLI 到用户可执行路径，默认 `~/.local/bin/loom`
+1. 安装当前平台可执行文件到用户可执行路径；Unix 默认 `~/.local/bin/loom`，Windows 默认 `%LOCALAPPDATA%\Programs\loom\bin\loom.exe`
 2. 安装 harness 启动/退出 hooks
 3. 不接管真实 harness CLI；默认禁用同名 command shims
 4. 安装周期性 timer
@@ -341,7 +347,10 @@ loom install-cli --cli-mode symlink
 ## 7. 仓库结构
 
 ```text
-bin/loom                  # 主 CLI 源码
+bin/loom                  # 主 CLI 源码，供开发 / Unix fallback 使用
+bin/loom.exe              # 可选的 Windows 生成产物，Git 忽略
+.github/workflows/        # Linux/macOS/Windows 自动构建流水线
+scripts/build.py          # 本地 PyInstaller 构建脚本
 config/manifest.json      # 受管文件 manifest 和排除规则
 agents/                   # 各 harness 的同步配置
 shared/                   # 共享 personas/hooks/assets

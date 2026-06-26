@@ -31,3 +31,10 @@ state/*.json
 scripts/loom-timer.ps1
 
 .omx/
+
+# generated build output
+build/
+dist/
+*.spec
+# stray Windows-path files created by stale hooks on POSIX
+*:*\*

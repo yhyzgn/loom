@@ -38,3 +38,5 @@ dist/
 *.spec
 # stray Windows-path files created by stale hooks on POSIX
 *:*\*
+*:*
+*\*

@@ -1,26 +1,3 @@
 {
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"D:\\File\\Projects\\Neo\\pub\\loom/bin/loom\" hook --platform \"qwen\" --phase start",
-            "timeout": 30
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"D:\\File\\Projects\\Neo\\pub\\loom/bin/loom\" hook --platform \"qwen\" --phase exit",
-            "timeout": 30
-          }
-        ]
-      }
-    ]
-  }
+  "hooks": {}
 }

@@ -8,6 +8,12 @@ LOCK = HUB / '.loom.lock'
 LOG_DIR = HUB / 'logs'
 STATE_DIR = HUB / 'state'
 HOOK_MARKER = 'loom/bin/loom hook'
+LOOM_HOOK_COMMAND_PATTERNS = (
+    'loom/bin/loom',
+    'loom\\bin\\loom',
+    '/bin/loom',
+    '\\bin\\loom',
+)
 
 
 def log(msg):
@@ -188,6 +194,62 @@ def merge_preserve_local_secrets(src, local):
     return src
 
 
+def is_loom_hook_command(command):
+    if not isinstance(command, str):
+        return False
+    normalized = command.replace('\\', '/')
+    return ' hook ' in command and any(pattern in command or pattern.replace('\\', '/') in normalized for pattern in LOOM_HOOK_COMMAND_PATTERNS)
+
+
+def strip_loom_hooks_from_settings(data):
+    if not isinstance(data, dict) or not isinstance(data.get('hooks'), dict):
+        return data, False
+    changed = False
+    new_data = dict(data)
+    new_hooks = {}
+    for event, groups in data.get('hooks', {}).items():
+        if not isinstance(groups, list):
+            new_hooks[event] = groups
+            continue
+        cleaned_groups = []
+        for group in groups:
+            if not isinstance(group, dict):
+                cleaned_groups.append(group)
+                continue
+            group_hooks = group.get('hooks', [])
+            if not isinstance(group_hooks, list):
+                cleaned_groups.append(group)
+                continue
+            remaining = []
+            for hook in group_hooks:
+                command = hook.get('command') if isinstance(hook, dict) else None
+                if is_loom_hook_command(command):
+                    changed = True
+                    continue
+                remaining.append(hook)
+            if remaining:
+                ng = dict(group)
+                ng['hooks'] = remaining
+                cleaned_groups.append(ng)
+            elif len(group_hooks) != len(remaining):
+                changed = True
+        if cleaned_groups:
+            new_hooks[event] = cleaned_groups
+        elif groups:
+            changed = True
+    if changed:
+        new_data['hooks'] = new_hooks
+    return new_data, changed
+
+
+def prepare_json_for_export(data, item):
+    if item.get('strip_loom_hooks'):
+        data, stripped = strip_loom_hooks_from_settings(data)
+        if stripped:
+            log(f'stripped local loom hooks from export {item["name"]}')
+    return data
+
+
 def export_local(manifest):
     changed=[]
     patterns=manifest.get('exclude_globs', [])
@@ -206,6 +268,7 @@ def export_local(manifest):
             if contains_sensitive_key(data):
                 log(f'skip sensitive json export {item["name"]}: {tgt}')
                 continue
+            data = prepare_json_for_export(data, item)
             src.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
         else:
             copy_file(tgt, src, item.get('mode'))
@@ -384,7 +447,7 @@ def install_hooks(manifest):
             )
             cmd = f'/bin/bash -lc {shlex.quote(inner)}'
         def is_agent_sync_hook(hook):
-            return isinstance(hook, dict) and '/bin/loom' in hook.get('command', '') and ' hook ' in hook.get('command', '')
+            return isinstance(hook, dict) and is_loom_hook_command(hook.get('command', ''))
         cleaned=[]
         changed=False
         for group in arr:

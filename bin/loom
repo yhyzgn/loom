@@ -221,6 +221,15 @@ def validate_codex_hooks(path):
 SENSITIVE_SENTINEL = "__LOOM_LOCAL_SECRET__"
 SENSITIVE_KEY_PARTS = ('token', 'apikey', 'api_key', 'secret', 'password', 'credential', 'auth')
 
+REQUIRED_GLOBAL_MEMORY_MARKERS = (
+    'SPRING-BOOT-4-MIGRATION',
+    'DATABASE-SQL-REDLINES',
+    'JAVA-SPRING-ORM-SQL-REDLINES',
+    'MODULE-ENTRY-FILE-CONVENTION',
+    'NO-WARNING-SUPPRESSION',
+    'LOOM-AUTOSYNC',
+)
+
 
 def is_sensitive_key(key):
     k = str(key).lower().replace('-', '_')
@@ -633,6 +642,27 @@ def codex_user_prompt_commands(data):
     return commands
 
 
+
+def validate_global_memory_markers(manifest, scope='repo'):
+    errors = []
+    for item in manifest.get('managed_files', []):
+        source = item.get('source', '')
+        if item.get('type') != 'file' or not source.lower().endswith(('.md', '.markdown')):
+            continue
+        # CLAUDE.md intentionally references the canonical memory file rather than embedding it.
+        if item.get('name') == 'claude-md':
+            continue
+        path = HUB / source if scope == 'repo' else Path(item['target'])
+        if not path.exists():
+            continue
+        text = path.read_text(errors='ignore')
+        if 'GLOBAL-MEMORY:' not in text:
+            continue
+        for marker in REQUIRED_GLOBAL_MEMORY_MARKERS:
+            if f'<!-- GLOBAL-MEMORY:{marker}:START -->' not in text or f'<!-- GLOBAL-MEMORY:{marker}:END -->' not in text:
+                errors.append(f'{scope}:{path}: missing GLOBAL-MEMORY:{marker}')
+    return errors
+
 def validate_codex_runtime_invariants(data, path='codex hooks'):
     errors = []
     if not isinstance(data, dict) or set(data.keys()) != {'hooks'}:
@@ -753,6 +783,7 @@ def install_hooks(manifest):
 def doctor(manifest):
     errors=[]
     errors.extend(validate_managed_invariants(manifest, scope='repo'))
+    errors.extend(validate_global_memory_markers(manifest, scope='repo'))
     for item in manifest['managed_files']:
         src=HUB/item['source']; tgt=Path(item['target'])
         if not src.exists(): errors.append(f'missing source {item["name"]}: {src}')

@@ -56,6 +56,9 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
       - name: Download built artifacts
         uses: actions/download-artifact@v8
         with:
@@ -66,5 +69,6 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          find release-assets -type f -maxdepth 1 -print -exec ls -lh {} \;
           gh release create "${GITHUB_REF_NAME}" release-assets/loom-* --title "${GITHUB_REF_NAME}" --notes "Cross-platform loom executables built by GitHub Actions." --verify-tag || \
           gh release upload "${GITHUB_REF_NAME}" release-assets/loom-* --clobber

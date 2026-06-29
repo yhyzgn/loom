@@ -400,6 +400,18 @@ def git_commit(message):
     return True
 
 
+
+def git_status_porcelain():
+    return run(['git', 'status', '--porcelain']).stdout.strip()
+
+
+def assert_clean_worktree_for_sync():
+    status = git_status_porcelain()
+    if status:
+        log('ERROR working tree is not clean; refusing sync before pull-first merge')
+        log(status)
+        raise RuntimeError('working tree has uncommitted changes; commit/stash them or run export/apply explicitly')
+
 def has_origin():
     if not git_has_repo():
         return False
@@ -1041,20 +1053,23 @@ def cmd_sync(args):
     if should_skip_auto_sync(args):
         return 0
     log(f'sync begin platform={platform} phase={phase}')
-    repair_local_before_export(manifest)
-    changed=export_local(manifest); log(f'exported {len(changed)} managed entries')
-    guarded_git_commit(manifest, f'loom: capture local config {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', scope='repo')
-    if not pull_rebase():
-        raise RuntimeError('pull/rebase failed; refusing to apply or push')
+    assert_clean_worktree_for_sync()
+    if has_origin():
+        if not pull_rebase():
+            raise RuntimeError('pull/rebase failed; refusing to apply, export, commit, or push')
+    else:
+        log('No git origin configured; running local-only sync')
     assert_managed_invariants(manifest, scope='repo')
     applied=apply_repo(manifest); log(f'applied {len(applied)} managed entries')
     install_hooks(manifest)
     install_shims()
     assert_managed_invariants(manifest, scope='local')
+    changed=export_local(manifest); log(f'exported {len(changed)} managed entries after remote apply')
+    assert_managed_invariants(manifest, scope='repo')
     rc = doctor(manifest)
     if rc != 0:
-        raise RuntimeError('doctor failed after local apply; refusing to commit or push')
-    guarded_git_commit(manifest, f'loom: apply hook wiring {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', scope='repo')
+        raise RuntimeError('doctor failed after merge/export; refusing to commit or push')
+    guarded_git_commit(manifest, f'loom: sync merged healthy config {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', scope='repo')
     guarded_push(manifest)
     if rc == 0:
         mark_auto_sync(args)

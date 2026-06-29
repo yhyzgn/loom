@@ -47,7 +47,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\""
+            "command": "\"/home/neo/n/bin/node\" \"/home/neo/.codex/hooks/claude-fable5-user-prompt-wrapper.js\" --omx-native-hook \"/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js\"",
+            "timeout": 30
           }
         ]
       }

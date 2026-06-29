@@ -497,6 +497,116 @@ def hook_phase_for_event(event):
     return 'start'
 
 
+
+def hook_command_contains(command, needle):
+    return isinstance(command, str) and needle in command
+
+
+def is_codex_native_hook_command(command):
+    return hook_command_contains(command, 'codex-native-hook.js')
+
+
+def is_fable5_wrapper_command(command):
+    return hook_command_contains(command, 'claude-fable5-user-prompt-wrapper.js')
+
+
+def split_command(command):
+    try:
+        return shlex.split(command, posix=not windows_platform())
+    except Exception:
+        try:
+            return shlex.split(command)
+        except Exception:
+            return []
+
+
+def extract_native_hook_parts(command):
+    parts = split_command(command)
+    hook_path = None
+    node_path = None
+    for i, part in enumerate(parts):
+        if str(part).endswith('codex-native-hook.js'):
+            hook_path = part
+            if i > 0:
+                node_path = parts[i - 1]
+            break
+    if not hook_path:
+        return None, None
+    if not node_path or node_path.startswith('-'):
+        node_path = shutil.which('node') or 'node'
+    return node_path, hook_path
+
+
+def default_codex_native_hook_command(groups):
+    for group in groups:
+        for hook in group.get('hooks', []) if isinstance(group, dict) else []:
+            command = hook.get('command') if isinstance(hook, dict) else None
+            if is_codex_native_hook_command(command):
+                return command
+    fallback_hook = Path.home() / '.bun' / 'install' / 'global' / 'node_modules' / 'oh-my-codex' / 'dist' / 'scripts' / 'codex-native-hook.js'
+    node = shutil.which('node') or '/home/neo/n/bin/node'
+    return f'{quote_command_path(node)} {quote_command_path(fallback_hook)}'
+
+
+def fable5_wrapper_command(native_command):
+    node, native_hook = extract_native_hook_parts(native_command)
+    if not native_hook:
+        native_hook = str(Path.home() / '.bun' / 'install' / 'global' / 'node_modules' / 'oh-my-codex' / 'dist' / 'scripts' / 'codex-native-hook.js')
+    if not node:
+        node = shutil.which('node') or 'node'
+    wrapper = Path.home() / '.codex' / 'hooks' / 'claude-fable5-user-prompt-wrapper.js'
+    return f'{quote_command_path(node)} {quote_command_path(wrapper)} --omx-native-hook {quote_command_path(native_hook)}'
+
+
+def ensure_codex_fable5_user_prompt_hook(settings, data):
+    hooks = data.setdefault('hooks', {})
+    groups = hooks.setdefault('UserPromptSubmit', [])
+    native_command = default_codex_native_hook_command(groups)
+    wrapper_command = fable5_wrapper_command(native_command)
+    changed = False
+    cleaned = []
+    wrapper_present = False
+    for group in groups:
+        if not isinstance(group, dict):
+            cleaned.append(group)
+            continue
+        group_hooks = group.get('hooks', [])
+        if not isinstance(group_hooks, list):
+            cleaned.append(group)
+            continue
+        remaining = []
+        group_has_wrapper = False
+        for hook in group_hooks:
+            command = hook.get('command') if isinstance(hook, dict) else None
+            if is_fable5_wrapper_command(command):
+                new_hook = dict(hook)
+                if new_hook.get('command') != wrapper_command or new_hook.get('timeout') != 30:
+                    new_hook['command'] = wrapper_command
+                    new_hook['timeout'] = 30
+                    changed = True
+                remaining.append(new_hook)
+                group_has_wrapper = True
+                wrapper_present = True
+            elif is_codex_native_hook_command(command):
+                # The wrapper runs the native hook first and merges its output, so a separate
+                # UserPromptSubmit native hook would duplicate OMX prompt context.
+                changed = True
+            else:
+                remaining.append(hook)
+        if remaining:
+            ng = dict(group)
+            ng['hooks'] = remaining
+            cleaned.append(ng)
+        elif group_hooks and not group_has_wrapper:
+            changed = True
+    if not wrapper_present:
+        cleaned.insert(0, {'hooks': [{'type': 'command', 'command': wrapper_command, 'timeout': 30}]})
+        changed = True
+    if changed or cleaned != groups:
+        hooks['UserPromptSubmit'] = cleaned
+        settings.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
+    return changed
+
 def install_hooks(manifest):
     installed=[]
     cli_path = cli_executable_path()
@@ -549,6 +659,8 @@ def install_hooks(manifest):
             settings.write_text(json.dumps(data, indent=2, ensure_ascii=False)+'\n')
             installed.append(platform)
         if h.get('schema') == 'codex-hooks-json':
+            if platform == 'codex' and ensure_codex_fable5_user_prompt_hook(settings, data):
+                installed.append(platform + ':fable5')
             validate_codex_hooks(settings)
             update_codex_config_trust(settings)
     return installed

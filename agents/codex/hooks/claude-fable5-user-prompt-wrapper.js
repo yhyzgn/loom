@@ -3,8 +3,16 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
-const OMX_HOOK = '/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js';
+const DEFAULT_OMX_HOOK = '/home/neo/.bun/install/global/node_modules/oh-my-codex/dist/scripts/codex-native-hook.js';
 const NODE = process.execPath;
+
+function argValue(name) {
+  const idx = process.argv.indexOf(name);
+  if (idx === -1 || idx + 1 >= process.argv.length) return '';
+  return process.argv[idx + 1];
+}
+
+const OMX_HOOK = argValue('--omx-native-hook') || process.env.OMX_CODEX_NATIVE_HOOK || DEFAULT_OMX_HOOK;
 
 function readStdin() {
   return fs.readFileSync(0, 'utf8');

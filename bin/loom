@@ -607,6 +607,78 @@ def ensure_codex_fable5_user_prompt_hook(settings, data):
         settings.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
     return changed
 
+
+def codex_user_prompt_commands(data):
+    hooks = data.get('hooks', {}) if isinstance(data, dict) else {}
+    groups = hooks.get('UserPromptSubmit', []) if isinstance(hooks, dict) else []
+    commands = []
+    for group in groups if isinstance(groups, list) else []:
+        for hook in group.get('hooks', []) if isinstance(group, dict) else []:
+            if isinstance(hook, dict) and hook.get('type', 'command') == 'command':
+                command = hook.get('command')
+                if isinstance(command, str):
+                    commands.append(command)
+    return commands
+
+
+def validate_codex_runtime_invariants(data, path='codex hooks'):
+    errors = []
+    if not isinstance(data, dict) or set(data.keys()) != {'hooks'}:
+        return [f'{path}: expected only top-level hooks key']
+    commands = codex_user_prompt_commands(data)
+    wrapper_commands = [c for c in commands if is_fable5_wrapper_command(c)]
+    bare_native = [c for c in commands if is_codex_native_hook_command(c) and not is_fable5_wrapper_command(c)]
+    if len(wrapper_commands) != 1:
+        errors.append(f'{path}: expected exactly one claude-fable5 UserPromptSubmit wrapper, got {len(wrapper_commands)}')
+    if bare_native:
+        errors.append(f'{path}: UserPromptSubmit has bare codex-native-hook.js; it must be wrapped by claude-fable5-user-prompt-wrapper.js')
+    if wrapper_commands:
+        command = wrapper_commands[0]
+        if '--omx-native-hook' not in command or 'codex-native-hook.js' not in command:
+            errors.append(f'{path}: Fable5 wrapper must pass --omx-native-hook codex-native-hook.js')
+    return errors
+
+
+def validate_managed_invariants(manifest, scope='repo'):
+    errors = []
+    for item in manifest.get('managed_files', []):
+        if item.get('name') != 'codex-hooks':
+            continue
+        path = HUB / item['source'] if scope == 'repo' else Path(item['target'])
+        if not path.exists():
+            errors.append(f'{scope}:{item["name"]}: missing {path}')
+            continue
+        try:
+            data = validate_codex_hooks(path)
+        except Exception as e:
+            errors.append(f'{scope}:{item["name"]}: {e}')
+            continue
+        errors.extend(validate_codex_runtime_invariants(data, f'{scope}:{path}'))
+    return errors
+
+
+def assert_managed_invariants(manifest, scope='repo'):
+    errors = validate_managed_invariants(manifest, scope)
+    if errors:
+        for error in errors:
+            log('ERROR invariant failed: ' + error)
+        raise RuntimeError(f'{scope} managed config invariants failed; refusing to commit or push')
+
+
+def repair_local_before_export(manifest):
+    install_hooks(manifest)
+    assert_managed_invariants(manifest, scope='local')
+
+
+def guarded_git_commit(manifest, message, scope='repo'):
+    assert_managed_invariants(manifest, scope=scope)
+    return git_commit(message)
+
+
+def guarded_push(manifest):
+    assert_managed_invariants(manifest, scope='repo')
+    return push()
+
 def install_hooks(manifest):
     installed=[]
     cli_path = cli_executable_path()
@@ -668,6 +740,7 @@ def install_hooks(manifest):
 
 def doctor(manifest):
     errors=[]
+    errors.extend(validate_managed_invariants(manifest, scope='repo'))
     for item in manifest['managed_files']:
         src=HUB/item['source']; tgt=Path(item['target'])
         if not src.exists(): errors.append(f'missing source {item["name"]}: {src}')
@@ -968,15 +1041,21 @@ def cmd_sync(args):
     if should_skip_auto_sync(args):
         return 0
     log(f'sync begin platform={platform} phase={phase}')
+    repair_local_before_export(manifest)
     changed=export_local(manifest); log(f'exported {len(changed)} managed entries')
-    git_commit(f'loom: capture local config {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-    pull_rebase()
+    guarded_git_commit(manifest, f'loom: capture local config {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', scope='repo')
+    if not pull_rebase():
+        raise RuntimeError('pull/rebase failed; refusing to apply or push')
+    assert_managed_invariants(manifest, scope='repo')
     applied=apply_repo(manifest); log(f'applied {len(applied)} managed entries')
     install_hooks(manifest)
     install_shims()
-    git_commit(f'loom: apply hook wiring {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
-    push()
+    assert_managed_invariants(manifest, scope='local')
     rc = doctor(manifest)
+    if rc != 0:
+        raise RuntimeError('doctor failed after local apply; refusing to commit or push')
+    guarded_git_commit(manifest, f'loom: apply hook wiring {dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}', scope='repo')
+    guarded_push(manifest)
     if rc == 0:
         mark_auto_sync(args)
     return rc
@@ -1007,9 +1086,18 @@ def main():
         acquire_lock()
         manifest=load_manifest(); git_init_if_needed()
         if args.cmd == 'export':
-            changed=export_local(manifest); log(f'exported {len(changed)} managed entries'); git_commit(f'loom: export local config {dt.datetime.now().isoformat()}'); return 0
+            repair_local_before_export(manifest)
+            changed=export_local(manifest); log(f'exported {len(changed)} managed entries')
+            guarded_git_commit(manifest, f'loom: export local config {dt.datetime.now().isoformat()}', scope='repo')
+            return 0
         if args.cmd == 'apply':
-            pull_rebase(); applied=apply_repo(manifest); log(f'applied {len(applied)} managed entries'); install_hooks(manifest); install_shims(); return doctor(manifest)
+            if not pull_rebase():
+                raise RuntimeError('pull/rebase failed; refusing to apply')
+            assert_managed_invariants(manifest, scope='repo')
+            applied=apply_repo(manifest); log(f'applied {len(applied)} managed entries')
+            install_hooks(manifest); install_shims()
+            assert_managed_invariants(manifest, scope='local')
+            return doctor(manifest)
         if args.cmd == 'sync': return cmd_sync(args)
         if args.cmd == 'doctor': return doctor(manifest)
         if args.cmd == 'install-hooks':

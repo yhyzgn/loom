@@ -37,4 +37,11 @@ jobs:
         run: python scripts/build.py --no-smoke
 
       - name: Run runtime smoke tests
-        run: python scripts/runtime_smoke.py
+        run: python scripts/runtime_smoke.py --report runtime-report/runtime-${{ runner.os }}-${{ runner.arch }}.md
+
+      - name: Upload runtime validation report
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtime-report-${{ runner.os }}-${{ runner.arch }}
+          path: runtime-report/*.md
+          if-no-files-found: error

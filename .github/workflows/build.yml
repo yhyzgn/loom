@@ -37,6 +37,9 @@ jobs:
       - name: Build executable
         run: python scripts/build.py
 
+      - name: Run runtime smoke tests
+        run: python scripts/runtime_smoke.py --report runtime-report/runtime-${{ runner.os }}-${{ runner.arch }}.md
+
       - name: Upload executable artifact
         uses: actions/upload-artifact@v7
         with:
@@ -44,6 +47,13 @@ jobs:
           path: |
             dist/loom-*
             dist/*.sha256
+          if-no-files-found: error
+
+      - name: Upload runtime validation report
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtime-report-${{ runner.os }}-${{ runner.arch }}
+          path: runtime-report/*.md
           if-no-files-found: error
 
 
@@ -62,13 +72,57 @@ jobs:
       - name: Download built artifacts
         uses: actions/download-artifact@v8
         with:
+          pattern: loom-*
           path: release-assets
           merge-multiple: true
+
+      - name: Download runtime validation reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: runtime-report-*
+          path: release-reports
+          merge-multiple: true
+
+      - name: Compose release notes
+        run: |
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          reports = "\n".join(
+              path.read_text(encoding="utf-8").strip()
+              for path in sorted(Path("release-reports").glob("*.md"))
+          )
+          notes = f"""Cross-platform loom executables built by GitHub Actions.
+
+          ## Runtime validation report
+
+          Validation source:
+          - Build workflow: {os.environ["GITHUB_SERVER_URL"]}/{os.environ["GITHUB_REPOSITORY"]}/actions/runs/{os.environ["GITHUB_RUN_ID"]}
+          - Commit: `{os.environ["GITHUB_SHA"]}`
+
+          Result: **passed on Ubuntu, macOS, and Windows**.
+
+          {reports}
+
+          ## Assets published
+
+          - `loom-linux-x86_64`
+          - `loom-macos-arm64`
+          - `loom-windows-x86_64.exe`
+          - SHA-256 checksum files for each executable
+          """
+          Path("release-notes.md").write_text(notes, encoding="utf-8")
+          PY
 
       - name: Publish release assets
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          find release-assets -type f -maxdepth 1 -print -exec ls -lh {} \;
-          gh release create "${GITHUB_REF_NAME}" release-assets/loom-* --title "${GITHUB_REF_NAME}" --notes "Cross-platform loom executables built by GitHub Actions." --verify-tag || \
-          gh release upload "${GITHUB_REF_NAME}" release-assets/loom-* --clobber
+          find release-assets -maxdepth 1 -type f -print -exec ls -lh {} \;
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" release-assets/loom-* --clobber
+            gh release edit "${GITHUB_REF_NAME}" --notes-file release-notes.md
+          else
+            gh release create "${GITHUB_REF_NAME}" release-assets/loom-* --title "${GITHUB_REF_NAME}" --notes-file release-notes.md --verify-tag
+          fi

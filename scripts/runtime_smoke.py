@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Cross-platform runtime smoke tests for a built loom executable."""
 import argparse
+import datetime as _datetime
 import json
 import os
 import platform
@@ -11,6 +12,17 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
+RUNTIME_COVERAGE = [
+    "`doctor` works when run from a valid loom checkout directory.",
+    "Hub discovery works via global `--hub <path>`.",
+    "Hub discovery works via subcommand-level `--hub <path>`.",
+    "Hub discovery works via `LOOM_HUB`.",
+    "Hub discovery works via colocated `loom-hub.json` sidecar file.",
+    "Running outside a loom hub fails cleanly with a clear message and no traceback/PyInstaller crash.",
+    "`install-cli --target <dir> --mode copy` works in an isolated target with `LOOM_SKIP_PATH_EXPORT=1`.",
+    "The installed copy can run successfully via sidecar hub configuration.",
+]
 
 
 def run(cmd, *, cwd=None, env=None, expect=0):
@@ -40,10 +52,30 @@ def assert_contains(text, needle):
         raise AssertionError(f"expected output to contain {needle!r}, got:\n{text}")
 
 
+def write_report(path, *, exe, hub):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    now = _datetime.datetime.now(_datetime.UTC).replace(microsecond=0).isoformat()
+    lines = [
+        f"### {platform.system()} {platform.machine()}",
+        "",
+        "- Status: **passed**",
+        f"- Generated: `{now}`",
+        f"- Executable: `{exe.name}`",
+        f"- Hub: `{hub}`",
+        "",
+        "Validated runtime behavior:",
+    ]
+    lines.extend(f"- ✅ {item}" for item in RUNTIME_COVERAGE)
+    lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--exe", default=None, help="Path to built loom executable")
     parser.add_argument("--hub", default=str(ROOT), help="Path to loom checkout")
+    parser.add_argument("--report", default=None, help="Write a markdown runtime validation report")
     args = parser.parse_args()
 
     exe = executable_path(args.exe)
@@ -100,6 +132,8 @@ def main():
             raise AssertionError(f"installed sidecar missing: {target / 'loom-hub.json'}")
         run([installed, "doctor"], cwd=outside)
 
+    if args.report:
+        write_report(args.report, exe=exe, hub=hub)
     print("runtime smoke ok")
 
 

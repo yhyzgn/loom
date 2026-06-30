@@ -29,17 +29,39 @@ def find_hub_from(start):
     return None
 
 
+def valid_hub(path):
+    return bool(path) and (Path(path) / 'config' / 'manifest.json').exists()
+
+
 def discover_hub():
     env_hub = os.environ.get('LOOM_HUB')
     if env_hub:
         hub = Path(env_hub).expanduser().resolve()
-        if (hub / 'config' / 'manifest.json').exists():
+        if valid_hub(hub):
             return hub
     exe = runtime_path()
     sidecar_hub = read_hub_sidecar(exe)
     if sidecar_hub:
         return sidecar_hub.resolve()
-    return find_hub_from(exe) or find_hub_from(Path.cwd()) or exe.parents[1]
+    return find_hub_from(exe) or find_hub_from(Path.cwd())
+
+
+def hub_error_message():
+    exe = runtime_path()
+    return (
+        'Cannot find loom hub checkout: config/manifest.json was not found near the executable, '
+        'near the current directory, in LOOM_HUB, or in loom-hub.json.\n'
+        f'Executable: {exe}\n'
+        f'Current directory: {Path.cwd()}\n'
+        'Run from a cloned loom checkout, or pass --hub <path-to-loom-checkout>, or set LOOM_HUB. '
+        'On Windows, download/clone the loom repository first, then run: '
+        './loom-windows-x86_64.exe --hub C:/path/to/loom install'
+    )
+
+
+def require_hub():
+    if not HUB or not MANIFEST.exists():
+        raise RuntimeError(hub_error_message())
 
 
 def windows_platform(target_os=None):
@@ -72,10 +94,10 @@ def command_for_cli(path=None, target_os=None):
 
 
 HUB = discover_hub()
-MANIFEST = HUB / 'config' / 'manifest.json'
-LOCK = HUB / '.loom.lock'
-LOG_DIR = HUB / 'logs'
-STATE_DIR = HUB / 'state'
+MANIFEST = (HUB / 'config' / 'manifest.json') if HUB else Path('__loom_hub_not_found__') / 'config' / 'manifest.json'
+LOCK = (HUB / '.loom.lock') if HUB else Path.cwd() / '.loom.lock'
+LOG_DIR = (HUB / 'logs') if HUB else Path.cwd() / 'logs'
+STATE_DIR = (HUB / 'state') if HUB else Path.cwd() / 'state'
 HOOK_MARKER = 'loom/bin/loom hook'
 LOOM_HOOK_COMMAND_PATTERNS = (
     'loom/bin/loom',
@@ -104,6 +126,7 @@ def run(cmd, cwd=HUB, check=False, capture=True):
 
 
 def load_manifest():
+    require_hub()
     return json.loads(MANIFEST.read_text())
 
 
@@ -387,7 +410,7 @@ def apply_repo(manifest):
 
 
 def git_has_repo():
-    return (HUB / '.git').exists()
+    return bool(HUB) and (HUB / '.git').exists()
 
 
 def git_init_if_needed():
@@ -835,6 +858,7 @@ def default_user_bin_dir(target_os=None):
 
 
 def install_cli(target=None, mode='symlink'):
+    require_hub()
     target_dir = Path(target).expanduser() if target else default_user_bin_dir()
     target_dir.mkdir(parents=True, exist_ok=True)
     source = cli_executable_path()
@@ -932,6 +956,7 @@ def windows_startup_dir():
 
 
 def install_timer(interval_minutes=5, target_os=None):
+    require_hub()
     interval_minutes = max(1, int(interval_minutes))
     system = (target_os or py_platform.system()).lower()
     if system in ('linux', 'linux2'):
@@ -1107,29 +1132,56 @@ def cmd_sync(args):
     return rc
 
 
+def configure_hub(hub_arg):
+    global HUB, MANIFEST, LOCK, LOG_DIR, STATE_DIR
+    if not hub_arg:
+        return
+    hub = Path(hub_arg).expanduser().resolve()
+    if not valid_hub(hub):
+        raise RuntimeError(f'Invalid loom hub path: {hub} (missing config/manifest.json)')
+    HUB = hub
+    MANIFEST = HUB / 'config' / 'manifest.json'
+    LOCK = HUB / '.loom.lock'
+    LOG_DIR = HUB / 'logs'
+    STATE_DIR = HUB / 'state'
+
+
+def add_hub_arg(parser):
+    parser.add_argument('--hub', default=argparse.SUPPRESS, help='Path to the loom checkout containing config/manifest.json.')
+    return parser
+
+
 def main():
     ap=argparse.ArgumentParser()
+    ap.add_argument('--hub', default=None, help='Path to the loom checkout containing config/manifest.json. Overrides LOOM_HUB and loom-hub.json.')
     sub=ap.add_subparsers(dest='cmd', required=True)
-    ip=sub.add_parser('install'); ip.add_argument('--cli-target', default=None); ip.add_argument('--cli-mode', choices=['symlink','copy'], default='symlink'); ip.add_argument('--interval-minutes', type=int, default=5); ip.add_argument('--platform', choices=['linux','macos','windows'], default=None)
-    sub.add_parser('export')
-    sub.add_parser('apply')
-    sub.add_parser('sync')
-    sub.add_parser('doctor')
-    sub.add_parser('install-hooks')
-    cp=sub.add_parser('install-cli'); cp.add_argument('--target', default=None); cp.add_argument('--mode', choices=['symlink','copy'], default='symlink')
-    sub.add_parser('install-shims')
-    tp=sub.add_parser('install-timer'); tp.add_argument('--interval-minutes', type=int, default=5); tp.add_argument('--platform', choices=['linux','macos','windows'], default=None)
-    tsp=sub.add_parser('timer-status'); tsp.add_argument('--platform', choices=['linux','macos','windows'], default=None)
-    hp=sub.add_parser('hook'); hp.add_argument('--platform', default='unknown'); hp.add_argument('--phase', default='start', choices=['start', 'exit', 'timer', 'manual']); hp.add_argument('--force', action='store_true')
+    ip=add_hub_arg(sub.add_parser('install')); ip.add_argument('--cli-target', default=None); ip.add_argument('--cli-mode', choices=['symlink','copy'], default='symlink'); ip.add_argument('--interval-minutes', type=int, default=5); ip.add_argument('--platform', choices=['linux','macos','windows'], default=None)
+    add_hub_arg(sub.add_parser('export'))
+    add_hub_arg(sub.add_parser('apply'))
+    add_hub_arg(sub.add_parser('sync'))
+    add_hub_arg(sub.add_parser('doctor'))
+    add_hub_arg(sub.add_parser('install-hooks'))
+    cp=add_hub_arg(sub.add_parser('install-cli')); cp.add_argument('--target', default=None); cp.add_argument('--mode', choices=['symlink','copy'], default='symlink')
+    add_hub_arg(sub.add_parser('install-shims'))
+    tp=add_hub_arg(sub.add_parser('install-timer')); tp.add_argument('--interval-minutes', type=int, default=5); tp.add_argument('--platform', choices=['linux','macos','windows'], default=None)
+    tsp=add_hub_arg(sub.add_parser('timer-status')); tsp.add_argument('--platform', choices=['linux','macos','windows'], default=None)
+    hp=add_hub_arg(sub.add_parser('hook')); hp.add_argument('--platform', default='unknown'); hp.add_argument('--phase', default='start', choices=['start', 'exit', 'timer', 'manual']); hp.add_argument('--force', action='store_true')
     args=ap.parse_args()
+    try:
+        configure_hub(getattr(args, 'hub', None))
+    except Exception as e:
+        print(str(e))
+        return 1
     if args.cmd == 'install':
         try:
             return install_all(args)
         except Exception as e:
             log(f'install failed: {e}')
             return 1
+    locked = False
     try:
-        acquire_lock()
+        require_hub()
+        acquire_lock(); locked = True
         manifest=load_manifest(); git_init_if_needed()
         if args.cmd == 'export':
             repair_local_before_export(manifest)
@@ -1162,8 +1214,12 @@ def main():
             except Exception as e:
                 log(f'hook sync skipped/failed for {args.platform}: {e}')
                 return 0
+    except RuntimeError as e:
+        print(str(e))
+        return 1
     finally:
-        release_lock()
+        if locked:
+            release_lock()
 
 if __name__ == '__main__':
     sys.exit(main())

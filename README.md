@@ -207,17 +207,24 @@ cd loom
 
 ### 4.2 Install on the current machine
 
-Preferred install uses the platform executable built by GitHub Actions. Download the artifact/release asset for your OS, put it in this checkout's `bin/` directory, and name it `loom` on Linux/macOS or `loom.exe` on Windows. Then run:
+Preferred install uses the platform executable built by GitHub Actions. `loom` is a CLI for a cloned loom checkout; the executable does **not** embed `config/manifest.json` or your synced agent files. Download the artifact/release asset for your OS, put it in this checkout's `bin/` directory, and name it `loom` on Linux/macOS or `loom.exe` on Windows. Then run:
 
 ```bash
-# Linux/macOS
+# Linux/macOS, from the loom checkout
 ./bin/loom install
 
-# Windows PowerShell
+# Windows PowerShell, from the loom checkout
 .\bin\loom.exe install
 ```
 
-For development on Linux/macOS you can still run the Python source at `bin/loom`; Windows should use `loom.exe` because the source file has no native Windows launcher semantics.
+If you keep the executable outside the checkout, point it at the checkout explicitly:
+
+```powershell
+.\loom-windows-x86_64.exe --hub C:\path\to\loom install
+.\loom-windows-x86_64.exe sync --hub C:\path\to\loom
+```
+
+You can also set `LOOM_HUB` or place a `loom-hub.json` sidecar next to the executable. For development on Linux/macOS you can still run the Python source at `bin/loom`; Windows should use `loom.exe` because the source file has no native Windows launcher semantics.
 
 After the first install, new shells should be able to run:
 

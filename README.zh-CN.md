@@ -207,17 +207,24 @@ cd loom
 
 ### 4.2 在当前机器安装
 
-推荐使用 GitHub Actions 构建出来的分平台可执行文件。下载与你 OS 匹配的 artifact/release asset，放到本 checkout 的 `bin/` 目录；Linux/macOS 命名为 `loom`，Windows 命名为 `loom.exe`。然后运行：
+推荐使用 GitHub Actions 构建出来的分平台可执行文件。`loom` 是针对已 clone 的 loom checkout 运行的 CLI；可执行文件本身**不内置** `config/manifest.json` 或你的同步配置文件。下载与你 OS 匹配的 artifact/release asset，放到本 checkout 的 `bin/` 目录；Linux/macOS 命名为 `loom`，Windows 命名为 `loom.exe`。然后运行：
 
 ```bash
-# Linux/macOS
+# Linux/macOS，在 loom checkout 内
 ./bin/loom install
 
-# Windows PowerShell
+# Windows PowerShell，在 loom checkout 内
 .\bin\loom.exe install
 ```
 
-开发时 Linux/macOS 仍可直接运行 Python 源文件 `bin/loom`；Windows 应使用 `loom.exe`，因为无扩展名 Python 文件在 Windows 上不能作为原生可执行程序可靠运行。
+如果可执行文件放在 checkout 外面，需要显式指定 checkout 路径：
+
+```powershell
+.\loom-windows-x86_64.exe --hub C:\path\to\loom install
+.\loom-windows-x86_64.exe sync --hub C:\path\to\loom
+```
+
+也可以设置 `LOOM_HUB`，或在可执行文件旁放一个 `loom-hub.json` sidecar。开发时 Linux/macOS 仍可直接运行 Python 源文件 `bin/loom`；Windows 应使用 `loom.exe`，因为无扩展名 Python 文件在 Windows 上不能作为原生可执行程序可靠运行。
 
 安装后，新 shell 应该可以直接执行：
 

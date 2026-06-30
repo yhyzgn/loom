@@ -881,6 +881,9 @@ def install_path_exports(*dirs):
     dirs = [str(Path(d).expanduser()) for d in dirs if d]
     if not dirs:
         return
+    if os.environ.get('LOOM_SKIP_PATH_EXPORT') == '1':
+        log('skip PATH export because LOOM_SKIP_PATH_EXPORT=1')
+        return
     if windows_platform():
         log('Windows PATH is not edited automatically; add ' + dirs[0] + ' to PATH if you want to run loom from any shell')
         return
